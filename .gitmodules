@@ -1,0 +1,3 @@
+[submodule "lib/HeartsEnv"]
+	path = lib/HeartsEnv
+	url = git@github.com:wirelessr/HeartsEnv.git
