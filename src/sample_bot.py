@@ -18,7 +18,7 @@ class Log(object):
         self.logger.setLevel(logging.INFO)
     def show_message(self,msg):
         if self.is_debug:
-            print msg
+            print(msg)
     def save_logs(self,msg):
         self.logger.info(msg)
 
@@ -141,8 +141,8 @@ class PokerBot(object):
                         receive_cards.append(Card(card))
                     break
             return receive_cards
-        except Exception, e:
-            system_log.show_message(e.message)
+        except Exception as e:
+            system_log.show_message(e)
             return None
 
     def get_round_scores(self,is_expose_card=False,data=None):
@@ -208,8 +208,8 @@ class PokerBot(object):
                 receive_cards[player_name]=player_receive
                 picked_cards[player_name]=player_picked
             return final_scores, initial_cards,receive_cards,picked_cards
-        except Exception, e:
-            system_log.show_message(e.message)
+        except Exception as e:
+            system_log.show_message(e)
             return None
 
     def get_game_scores(self,data):
@@ -221,8 +221,8 @@ class PokerBot(object):
                 palyer_score=player['gameScore']
                 receive_cards[player_name]=palyer_score
             return receive_cards
-        except Exception, e:
-            system_log.show_message(e.message)
+        except Exception as e:
+            system_log.show_message(e)
             return None
 
 class PokerSocket(object):
@@ -319,8 +319,8 @@ class PokerSocket(object):
                 system_log.show_message(data)
                 system_log.save_logs(data)
                 self.takeAction(event_name, data)
-        except Exception, e:
-            system_log.show_message(e.message)
+        except Exception as e:
+            system_log.show_message(e)
             self.doListen()
 
 class LowPlayBot(PokerBot):
@@ -412,9 +412,9 @@ class LowPlayBot(PokerBot):
                 if player['exposedCards']!=[] and len(player['exposedCards'])>0 and player['exposedCards']!=None:
                     expose_player=player['playerName']
                     expose_card=player['exposedCards']
-            except Exception, e:
-                system_log.show_message(e.message)
-                system_log.save_logs(e.message)
+            except Exception as e:
+                system_log.show_message(e)
+                system_log.save_logs(e)
         if expose_player!=None and expose_card!=None:
             message="Player:{}, Expose card:{}".format(expose_player,expose_card)
             system_log.show_message(message)
@@ -445,8 +445,8 @@ class LowPlayBot(PokerBot):
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
                 system_log.show_message(message)
                 system_log.save_logs(message)
-        except Exception, e:
-            system_log.show_message(e.message)
+        except Exception as e:
+            system_log.show_message(e)
 
     def deal_end(self,data):
         self.my_hand_cards=[]
