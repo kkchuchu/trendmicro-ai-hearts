@@ -26,10 +26,10 @@ class Player:
 
     def __init__(self):
         self.a = [None, None, None, None]
-        self.b = self._init_card() #過去出過的牌
-        self.c = self._init_card() # 每個人收的
-        self.d = self._init_card() # 已知的牌，換的
-        self.f = self._init_card() # 缺門
+        self.guo_qu_chu_guo = self._init_card() #過去出過的牌
+        self.shou_de = self._init_card() # 每個人收的
+        self.yi_zhi_de = self._init_card() # 已知的牌，換的
+        self.que_men = self._init_card() # 缺門
 
     def _init_card(self):
         return [[-1 for i in range(13)] for i in range(3)]
