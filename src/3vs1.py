@@ -1,6 +1,6 @@
-from bot import TrendBotBase
+from bot import GymBotBase
 
-class A3C(TrendBotBase):
+class A3C(GymBotBase):
 
     def declare_action(self, player_obs, table_obs):
         action = [self.idx]
