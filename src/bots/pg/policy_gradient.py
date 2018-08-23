@@ -11,9 +11,17 @@ gym: 0.8.0
 import numpy as np
 import tensorflow as tf
 
+from bot import GymBotBase
+
 # reproducible
 np.random.seed(1)
 tf.set_random_seed(1)
+
+
+class FooBot(GymBotBase):
+
+    def __init__(self):
+        pass
 
 
 class PolicyGradient:

@@ -8,13 +8,19 @@ gym: 0.8.0
 """
 
 import gym
-from RL_brain import PolicyGradient
+from policy_gradient import PolicyGradient
 import matplotlib.pyplot as plt
+import gym
+import sys
+
+sys.path.append('../lib/HeartsEnv')
+from hearts.hearts import HeartsEnv
+from hearts.bot import BotBase, RandomBot
 
 DISPLAY_REWARD_THRESHOLD = 400  # renders environment if total episode reward is greater then this threshold
 RENDER = False  # rendering wastes time
 
-env = gym.make('CartPole-v0')
+env = HeartsEnv(render_delay=0.1)
 env.seed(1)     # reproducible, general Policy gradient has high variance
 env = env.unwrapped
 
