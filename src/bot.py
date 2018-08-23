@@ -39,9 +39,10 @@ class GymBotBase:
 
     def player_obs2features(self, player_obs, table_obs):
         n_round, start_pos, cur_pos, exchanged, hearts_occur, n_game,\
+            finish_expose, heart_exposed,\
                 board, first_draw, bank = table_obs 
 
-        p1_score, p2_score, p3_score, p4_score, \
+        players, my_score, \
             hand, income = player_obs
 
         """
@@ -58,6 +59,7 @@ class GymBotBase:
 
             for (number, rank) in bank:
                 self.player_info[start_pos].shou_de[rank][number] = 1
+
 
             color = bank[self.last_round_start_pos][1]
             for pos, (number, rank) in enumerate(bank):
