@@ -15,9 +15,6 @@ def main():
 
     while not done:
         env.render(mode)
-
-        n_round, start_pos, cur_pos, exchanged, hearts_occur, n_game,\
-                board, first_draw, bank = obs[1]
         player_obs = obs[0]
 
         action = bot.declare_action(player_obs, obs[1], env)
