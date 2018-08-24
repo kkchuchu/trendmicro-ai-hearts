@@ -18,12 +18,6 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 
-class FooBot(GymBotBase):
-
-    def __init__(self):
-        pass
-
-
 class PolicyGradient:
 
     def __init__(

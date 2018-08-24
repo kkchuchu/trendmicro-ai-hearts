@@ -485,8 +485,8 @@ def main():
         token= sys.argv[3]
         connect_url = sys.argv[4]
     else:
-        player_name="Eric"
-        player_number=4
+        player_name="Eric1"
+        player_number=3
         token="12345678"
         connect_url="ws://localhost:8080/"
     sample_bot=LowPlayBot(player_name)
