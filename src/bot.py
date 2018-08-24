@@ -3,7 +3,6 @@
 import gym
 import sys
 
-_ignore__1 = lambda card: -1 not in card
 
 class TrendBotBase:
 
@@ -51,8 +50,12 @@ class GymBotBase:
         """
 
         if exchanged: # 過了換牌步驟
-            for pos, (number, rank) in enumerate(filter(_ignore__1, board)):
-                self.player_info[pos].guo_qu_chu_guo[rank][number] = 1
+            if n_round == 0: # bank store last round information even game number is changed.
+                bank = []
+
+            for pos, (number, rank) in enumerate(board):
+                if -1 not in (number, rank):
+                    self.player_info[pos].guo_qu_chu_guo[rank][number] = 1
             for pos, (number, rank) in enumerate(bank):
                 self.player_info[pos].guo_qu_chu_guo[rank][number] = 1
 
@@ -60,14 +63,14 @@ class GymBotBase:
             for (number, rank) in bank:
                 self.player_info[start_pos].shou_de[rank][number] = 1
 
-
-            color = bank[self.last_round_start_pos][1]
-            for pos, (number, rank) in enumerate(bank):
-                if rank != color: #缺門
-                    self.player_info[pos].que_men[color] = 1
+            if len(bank) > 0:
+                color = bank[self.last_round_start_pos][1]
+                for pos, (number, rank) in enumerate(bank):
+                    if rank != color: #缺門
+                        self.player_info[pos].que_men[color] = 1
             color = board[start_pos][1]
-            for pos, (number, rank) in enumerate(filter(_ignore__1, board)):
-                if rank != color:
+            for pos, (number, rank) in enumerate(board):
+                if -1 not in (number, rank) and rank != color:
                     self.player_info[pos].que_men[color] = 1
 
 
