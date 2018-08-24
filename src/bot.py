@@ -91,7 +91,11 @@ class TrendBotBase(BotBase):
     def receive_opponent_cards(self,data):
         err_msg = self.__build_err_msg("receive_opponent_cards")
         raise NotImplementedError(err_msg)
+
     def round_end(self,data):
+        self._set_player_info_in_round_end(data)
+
+    def _set_player_info_in_round_end(self, data):
         players=data['players']
         (round_first_player, first_player_index) = self._get_round_first_player(data)
         round_first_card = Card(players[first_player_index]['roundCard'])
@@ -110,8 +114,6 @@ class TrendBotBase(BotBase):
 
         for _, card in round_cards:
             self.player_info[who_get_card].shou_de[card.gym_suit_index()][card.gym_value_index()] = 1
-
-        from pdb import set_trace; set_trace()
 
 
     def deal_end(self,data):
@@ -305,7 +307,7 @@ class GymBotBase(BotBase):
         bank : 上一round的結果
         """
 
-        if exchanged: # 過了換牌步驟
+        if exchanged or n_game % 4 == 0: # 過了換牌步驟
             if n_round == 0: # bank store last round information even game number is changed.
                 bank = []
 
