@@ -287,13 +287,12 @@ class GymBotBase(BotBase):
     def reset(self):
         self._reset_card_history()
 
-    def declare_action(self, player_obs, table_obs, env):
+    def declare_action(self, player_obs, table_obs):
         self.player_obs2features(player_obs, table_obs)
-        self._env = env
         return self.choose_action()
 
     def choose_action(self):
-        return self._random_action(self._env)
+        return 1
 
     def player_obs2features(self, player_obs, table_obs):
         n_round, start_pos, cur_pos, exchanged, hearts_occur, n_game,\
@@ -334,10 +333,6 @@ class GymBotBase(BotBase):
 
 
         self.last_round_start_pos = start_pos # 更新上round的起始位置
-
-
-    def _random_action(self, env):
-        return env.action_space.sample()
 
 
 class PlayerInfo:
