@@ -1,63 +1,55 @@
 import gym
 import bots
-import matplotlib.pyplot as plt
 import gym
 import sys
 
 sys.path.append('../lib/HeartsEnv')
-from hearts.hearts import HeartsEnv
-from hearts.bot import BotBase, RandomBot
+from hearts.single import SingleEnv as HeartsEnv
+from bots.pg.policy_gradient import MyPolicyBot
 
 DISPLAY_REWARD_THRESHOLD = 400  # renders environment if total episode reward is greater then this threshold
 RENDER = False  # rendering wastes time
 
-env = HeartsEnv(render_delay=0.1)
-env.seed(1)     # reproducible, general Policy gradient has high variance
-env = env.unwrapped
 
-print(env.action_space)
-print(env.observation_space)
-print(env.observation_space.high)
-print(env.observation_space.low)
+def main():
+    bot = MyPolicyBot(3)
+    env = HeartsEnv()
+    mode = 'human'
+    done = False
+    last_n_game = 1
 
-RL = PolicyGradient(
-    n_actions=env.action_space.n,
-    n_features=env.observation_space.shape[0],
-    learning_rate=0.02,
-    reward_decay=0.99,
-    # output_graph=True,
-)
+    for i_episode in range(3000):
+        observation = env.reset()
+        while True:
+            action = bot.declare_action(observation[0], observation[1])
+            observation_, reward, done, _ = env.step(action)
+            bot.store_transition(observation, action, reward)
 
-for i_episode in range(3000):
+            if done:
+                ep_rs_sum = sum(bot.RL.ep_rs)
 
-    observation = env.reset()
+                if 'running_reward' not in globals():
+                    print("Idk what this mean")
+                    running_reward = ep_rs_sum
+                else:
+                    running_reward = running_reward * 0.99 + ep_rs_sum * 0.01
+                if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
+                print("episode:", i_episode, "  reward:", int(running_reward))
 
-    while True:
-        if RENDER: env.render()
+                vt = bot.RL.learn()
 
-        action = RL.choose_action(observation)
+                if i_episode == 0:
+                    plt.plot(vt)    # plot the episode vt
+                    plt.xlabel('episode steps')
+                    plt.ylabel('normalized state-action value')
+                    plt.show()
+                last_n_game = n_game
+                break
 
-        observation_, reward, done, info = env.step(action)
+            observation = observation_
 
-        RL.store_transition(observation, action, reward)
+    env.render(mode)
 
-        if done:
-            ep_rs_sum = sum(RL.ep_rs)
 
-            if 'running_reward' not in globals():
-                running_reward = ep_rs_sum
-            else:
-                running_reward = running_reward * 0.99 + ep_rs_sum * 0.01
-            if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
-            print("episode:", i_episode, "  reward:", int(running_reward))
-
-            vt = RL.learn()
-
-            if i_episode == 0:
-                plt.plot(vt)    # plot the episode vt
-                plt.xlabel('episode steps')
-                plt.ylabel('normalized state-action value')
-                plt.show()
-            break
-
-        observation = observation_
+if __name__ == '__main__':
+    main()

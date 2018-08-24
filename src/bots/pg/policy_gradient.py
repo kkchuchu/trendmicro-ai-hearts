@@ -18,6 +18,22 @@ np.random.seed(1)
 tf.set_random_seed(1)
 
 
+class MyPolicyBot(GymBotBase):
+
+    def __init__(self, player_position):
+        GymBotBase.__init__(self, player_position)
+        self.Model = PolicyGradient(
+            n_actions=52,
+            n_features=,
+            learning_rate=0.02,
+            reward_decay=0.99,
+            # output_graph=True,
+        )
+
+    def choose_action(self):
+        pass
+
+
 class PolicyGradient:
 
     def __init__(
