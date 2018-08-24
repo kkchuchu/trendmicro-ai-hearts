@@ -45,17 +45,14 @@ class Card:
 
 class BotBase:
 
-    def your_turn(self):
-        pass
-
-    def new_deal(self):
+    def __init__(self):
         self._reset_card_history()
 
-    def new_round(self):
-        pass
+    def choose_action(self):
+        raise NotImplementedError()
 
-    def player_obs2features(self, *args, **wargs):
-        raise NotImplemented()
+    def _reset_card_history(self):
+        self.player_info = {}
 
 
 class TrendBotBase(BotBase):
@@ -80,8 +77,8 @@ class TrendBotBase(BotBase):
         err_msg = self.__build_err_msg("pass_cards")
         raise NotImplementedError(err_msg)
     def pick_card(self,data):
-        err_msg = self.__build_err_msg("pick_card")
-        raise NotImplementedError(err_msg)
+        self.choose_action()
+
     def expose_my_cards(self,yourcards):
         err_msg = self.__build_err_msg("expose_my_cards")
         raise NotImplementedError(err_msg)
@@ -130,7 +127,7 @@ class TrendBotBase(BotBase):
         self.round_cards_history = []
         self.pick_his={}
         self.enable_heart = 0
-        self.player_info = {}
+        self._reset_card_history()
 
     def get_card_history(self):
         return self.round_cards_history
@@ -292,7 +289,11 @@ class GymBotBase(BotBase):
 
     def declare_action(self, player_obs, table_obs, env):
         self.player_obs2features(player_obs, table_obs)
-        return self._random_action(env)
+        self._env = env
+        return self.choose_action()
+
+    def choose_action(self):
+        return self._random_action(self._env)
 
     def player_obs2features(self, player_obs, table_obs):
         n_round, start_pos, cur_pos, exchanged, hearts_occur, n_game,\
