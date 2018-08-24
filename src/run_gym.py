@@ -19,7 +19,6 @@ def main():
         player_obs = obs[0]
         n_round, _, _, _, _, n_game, *_ = obs[1]
         if n_game > last_n_game:
-            from pdb import set_trace; set_trace()
             bot.reset()
 
         action = bot.declare_action(player_obs, obs[1], env)
