@@ -1,6 +1,7 @@
 #coding=UTF-8
 from abc import abstractmethod
 from bots.sample import LowPlayBot
+from bots.kitto import kittoBot
 
 from websocket import create_connection
 import json
@@ -135,9 +136,9 @@ def main():
     else:
         player_name="Eric"
         player_number=4
-        token="12345678"
+        token="12345675"
         connect_url="ws://localhost:8080/"
-    sample_bot=LowPlayBot(player_name)
+    sample_bot=kittoBot(player_name)
     myPokerSocket=PokerSocket(player_name,player_number,token,connect_url,sample_bot)
     myPokerSocket.doListen()
 
