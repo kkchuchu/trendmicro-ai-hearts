@@ -45,34 +45,35 @@ class GameInfo:
         for card in self.table.board:
             if card == 'QS':
                 score += 13
-            elif suit == 'H':
+            elif card and card[1] == 'H':
                 score += 1
         return score
 
     def get_board_max(self):
         max_rank = RANK_TO_INT[self.table.first_draw[0]]
-        for r,s in self.table.board:
-            r = RANK_TO_INT[r]
-            if s == self.table.first_draw[1]:
-                if r > max_rank:
-                    max_rank = r
+        for card in self.table.board:
+            if card:
+                r, s = card
+                r = RANK_TO_INT[r]
+                if s == self.table.first_draw[1]:
+                    if r > max_rank:
+                        max_rank = r
         return max_rank
 
     def get_possiable_min(self, n):
-        max_level = 0
         card = None
 
-        my_hand = self.players[self.me].hand.df
-        world_cards = self.table.opening_card.df + my_hand
-        
-        for r,s in self.candidate:
-            r = RANK_TO_INT[r]
-            wc = list(world_cards.loc[world_cards[s] == 0].index)
-            
-            level = len(list(filter(lambda x: x < r, wc)))
-            if level <= n and level >= max_level:
-                card = '%d%s' % (r, s)
-                max_level = level
+        if self.table.first_draw:
+            max_rank = self.candidate[0][0]
+            max_board = self.get_board_max()
+            for r, s in self.candidate:
+                r = RANK_TO_INT[r]
+                if s == self.table.first_draw[1] and r < max_board and r > max_rank:
+                    max_rank = r
+            return '%s%s' % (INT_TO_RANK[max_rank], self.table.first_draw[1])
+        else:
+            system_log.show_message(u'第一個出的規則還沒想')
+            pass
 
         return card
 
@@ -84,12 +85,11 @@ def declare_action(info):
     if not info.table.exchanged and info.table.n_game % 4 != 0:
         pass_card = []
 
-        # 換掉黑桃大牌
         topS = filter(lambda x: x >= 12, list(my_hand[my_hand['S'] > 0].index))
         for s in topS:
             pass_card.append('%sS' % INT_TO_RANK[s])
+            system_log.show_message(u'換掉黑桃大牌 %r' % pass_card)
 
-        # 除了黑桃，如果剛好可以缺門就拼缺門
         if len(pass_card) != 3:
             totals = list(my_hand.sum())
             for i, count in enumerate(totals):
@@ -98,14 +98,15 @@ def declare_action(info):
                 if count <= 3 - len(pass_card):
                     for rank in list(my_hand[my_hand[columns[i]] > 0].index):
                         pass_card.append('%s%s' % (INT_TO_RANK[rank], columns[i]))
+                        system_log.show_message(u'除了黑桃，如果剛好可以缺門就拼缺門' % pass_card)
 
-        # 如果還沒滿，換掉Ｑ以上的大牌
         if len(pass_card) != 3:
             for suit in ['C', 'H', 'D']:
                 tops = filter(lambda x: x >= 12, sorted(list(my_hand[my_hand[suit] > 0].index), reverse=True))
                 for s in tops:
                     if len(pass_card) < 3:
                         pass_card.append('%sS' % INT_TO_RANK[s])
+                        system_log.show_message(u'如果還沒滿，換掉Ｑ以上的大牌' % pass_card)
 
         system_log.show_message('pass_card %r' % pass_card)
         return pass_card
@@ -131,13 +132,13 @@ def declare_action(info):
                 if 'KS' in info.table.board or 'AS' in info.table.board:
                     return 'QS'
 
-            # 缺門：先丟黑桃ＡＫ，再丟差一張缺門的，然後是紅心從大開始丟
             if info.table.first_draw:
                 if info.candidate[0][1] != info.table.first_draw[1]:
                     tops = ['AS', 'KS']
 
                     for card in tops:
                         if card in info.candidate:
+                            system_log.show_message(u'缺門：先丟黑桃ＡＫ')
                             return card
 
                     totals = list(my_hand.sum())
@@ -145,33 +146,35 @@ def declare_action(info):
                         idx = totals.index(1)
                         suit = columns[idx]
                         rank = list(my_hand.loc[my_hand[suit] == 1].index)[0]
+                        system_log.show_message(u'缺門：丟差一張缺門的')
                         return '%s%s' % (INT_TO_RANK[rank], suit)
                     except ValueError:
                         pass
 
                     hearts = sorted(list(my_hand.loc[my_hand['H'] == 1].index), reverse=True)
                     if hearts:
+                        system_log.show_message(u'缺門：紅心從大開始丟')
                         return '%sH' % INT_TO_RANK[hearts[0]]
 
             if pos == LAST:
                 max_rank = info.get_board_max()
                 if info.get_board_score() != 0:
-                    max_safe = 0
+                    max_safe = 2
                     for r,s in info.candidate:
                         r = RANK_TO_INT[r]
-                        if s == info.table.first_draw[1] and r < max_rank and r > max_safe:
+                        if s == info.table.first_draw[1] and r < max_rank and r >= max_safe:
                             max_safe = r
-                    return '%d%s' % (max_safe, info.table.first_draw[1])
+                    return '%s%s' % (INT_TO_RANK[max_safe], info.table.first_draw[1])
                 else:
-                    max_rank = 0
+                    max_rank = 2
                     for r,s in info.candidate:
                         r = RANK_TO_INT[r]
-                        if s == info.table.first_draw[1] and r > max_rank:
+                        if s == info.table.first_draw[1] and r >= max_rank:
                             max_rank = r
-                    return '%d%s' % (max_rank, info.table.first_draw[1])
+                    return '%s%s' % (INT_TO_RANK[max_rank], info.table.first_draw[1])
 
-            # 丟安全中的最大牌
             pick_card = info.get_possiable_min(3 - pos)
+            system_log.show_message(u'丟安全中的最大牌 %r' % pick_card)
 
             return pick_card
 
@@ -188,6 +191,7 @@ class RuleBot(PokerBot):
 
     def reset(self):
         self.info = GameInfo()
+        self.info.table.exchanged = False
 
     def get_hand(self, data):
         selfdata = data['self']
@@ -204,7 +208,7 @@ class RuleBot(PokerBot):
         
 
     # new_deal
-    def receive_cards(self, data): 
+    def receive_cards(self, data):
         self.reset() # XXX
 
         dealNumber = data['dealNumber']
@@ -224,11 +228,13 @@ class RuleBot(PokerBot):
 
     def pass_cards(self, data):
         self.info.pass_to = data['receiver']
+        self.info.candidate = data['self']['candidateCards']
         return declare_action(self.info)
 
     def receive_opponent_cards(self, data):
         selfdata = data['self']
 
+        system_log.show_message('receive_opponent_cards')
         self.info.table.exchanged = True
 
         self.get_hand(data)
@@ -238,6 +244,7 @@ class RuleBot(PokerBot):
         self.info.received = selfdata['receivedCards']
 
     def expose_my_cards(self, data):
+        self.info.candidate = data['self']['candidateCards']
         return declare_action(self.info)
 
     def expose_cards_end(self, data):
