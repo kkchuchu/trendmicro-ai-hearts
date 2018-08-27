@@ -1,3 +1,4 @@
+# encoding: utf-8
 import random
 import pandas as pd
 
@@ -34,7 +35,46 @@ class GameInfo:
     received = []
     who_exposed = -1
     candidate = []
-    
+
+    def get_pos(self):
+        # (0, 1, 2, 3)
+        return 4 - self.table.board.count(None)
+
+    def get_board_score(self):
+        score = 0
+        for card in self.table.board:
+            if card == 'QS':
+                score += 13
+            elif suit == 'H':
+                score += 1
+        return score
+
+    def get_board_max(self):
+        max_rank = RANK_TO_INT[self.table.first_draw[0]]
+        for r,s in self.table.board:
+            r = RANK_TO_INT[r]
+            if s == self.table.first_draw[1]:
+                if r > max_rank:
+                    max_rank = r
+        return max_rank
+
+    def get_possiable_min(self, n):
+        max_level = 0
+        card = None
+
+        my_hand = self.players[self.me].hand.df
+        world_cards = self.table.opening_card.df + my_hand
+        
+        for r,s in self.candidate:
+            r = RANK_TO_INT[r]
+            wc = list(world_cards.loc[world_cards[s] == 0].index)
+            
+            level = len(list(filter(lambda x: x < r, wc)))
+            if level <= n and level >= max_level:
+                card = '%d%s' % (r, s)
+                max_level = level
+
+        return card
 
 
 def declare_action(info):
@@ -44,10 +84,12 @@ def declare_action(info):
     if not info.table.exchanged and info.table.n_game % 4 != 0:
         pass_card = []
 
+        # 換掉黑桃大牌
         topS = filter(lambda x: x >= 12, list(my_hand[my_hand['S'] > 0].index))
         for s in topS:
             pass_card.append('%sS' % INT_TO_RANK[s])
 
+        # 除了黑桃，如果剛好可以缺門就拼缺門
         if len(pass_card) != 3:
             totals = list(my_hand.sum())
             for i, count in enumerate(totals):
@@ -57,9 +99,10 @@ def declare_action(info):
                     for rank in list(my_hand[my_hand[columns[i]] > 0].index):
                         pass_card.append('%s%s' % (INT_TO_RANK[rank], columns[i]))
 
+        # 如果還沒滿，換掉Ｑ以上的大牌
         if len(pass_card) != 3:
             for suit in ['C', 'H', 'D']:
-                tops = filter(lambda x: x >= 12, list(my_hand[my_hand[suit] > 0].index))
+                tops = filter(lambda x: x >= 12, sorted(list(my_hand[my_hand[suit] > 0].index), reverse=True))
                 for s in tops:
                     if len(pass_card) < 3:
                         pass_card.append('%sS' % INT_TO_RANK[s])
@@ -73,10 +116,67 @@ def declare_action(info):
         return expose_card
     else:
         # TODO
-        if info.candidate:
-            pick_card = random.choice(info.candidate)
-        else:
+        FIRST = 0
+        LAST = 3
+
+        pos = info.get_pos()
+
+        def pick_one():
             pick_card = None
+
+            # 能安全丟黑桃Ｑ就丟
+            if 'QS' in info.candidate:
+                if info.table.first_draw and info.table.first_draw[1] != 'S':
+                    return 'QS'
+                if 'KS' in info.table.board or 'AS' in info.table.board:
+                    return 'QS'
+
+            # 缺門：先丟黑桃ＡＫ，再丟差一張缺門的，然後是紅心從大開始丟
+            if info.table.first_draw:
+                if info.candidate[0][1] != info.table.first_draw[1]:
+                    tops = ['AS', 'KS']
+
+                    for card in tops:
+                        if card in info.candidate:
+                            return card
+
+                    totals = list(my_hand.sum())
+                    try:
+                        idx = totals.index(1)
+                        suit = columns[idx]
+                        rank = list(my_hand.loc[my_hand[suit] == 1].index)[0]
+                        return '%s%s' % (INT_TO_RANK[rank], suit)
+                    except ValueError:
+                        pass
+
+                    hearts = sorted(list(my_hand.loc[my_hand['H'] == 1].index), reverse=True)
+                    if hearts:
+                        return '%sH' % INT_TO_RANK[hearts[0]]
+
+            if pos == LAST:
+                max_rank = info.get_board_max()
+                if info.get_board_score() != 0:
+                    max_safe = 0
+                    for r,s in info.candidate:
+                        r = RANK_TO_INT[r]
+                        if s == info.table.first_draw[1] and r < max_rank and r > max_safe:
+                            max_safe = r
+                    return '%d%s' % (max_safe, info.table.first_draw[1])
+                else:
+                    max_rank = 0
+                    for r,s in info.candidate:
+                        r = RANK_TO_INT[r]
+                        if s == info.table.first_draw[1] and r > max_rank:
+                            max_rank = r
+                    return '%d%s' % (max_rank, info.table.first_draw[1])
+
+            # 丟安全中的最大牌
+            pick_card = info.get_possiable_min(3 - pos)
+
+            return pick_card
+
+        pick_card = pick_one()
+
         system_log.show_message('pick_card %r' % pick_card)
         return pick_card
 
