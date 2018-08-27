@@ -1,40 +1,64 @@
 # encoding: utf-8
 import random
 import pandas as pd
+import numpy as np
 
 from bot import PokerBot
 from card import Cards, RANK_TO_INT, INT_TO_RANK
 from system_log import system_log
 
+
 class PlayerInfo:
-    no_suit = []
-    income = Cards()
-    draw = Cards()
-    hand = Cards()
-    name = ''
+
+    def __init__(self):
+        self.no_suit = []
+        self.income = Cards()
+        self.draw = Cards()
+        self.hand = Cards()
+        self.name = ''
+
+    def to_array(self):
+        # S, H, D, C
+        suit = [-1, -1, -1, -1]
+        if 'S' in self.no_suit:
+            suit[0] = 1
+        elif 'H' in self.no_suit:
+            suit[1] = 1
+        elif 'D' in self.no_suit:
+            suit[2] = 1
+        elif 'C' in self.no_suit:
+            suit[3] = 1
+        suit = np.array(suit)
+        return np.concatenate(suit, self.income.values.reshape(1, 52), self.draw.values.reshape(1, 52))
+
 
 class TableInfo:
-    heart_exposed = False
-    exchanged = False
-    n_round = 0
-    n_game = 0
-    board = []
-    first_draw = None
-    opening_card = Cards()
-    finish_expose = False
+
+    def __init__(self):
+        self.heart_exposed = False
+        self.exchanged = False
+        self.n_round = 0
+        self.n_game = 0
+        self.board = []
+        self.first_draw = None
+        self.opening_card = Cards()
+        self.finish_expose = False
+
 
 class GameInfo:
-    # Major
-    players = [PlayerInfo() for _ in range(4)]
-    table = TableInfo()
-    me = -1
-    # Minor
-    pass_to = ''
-    receive_from = ''
-    picked = []
-    received = []
-    who_exposed = -1
-    candidate = []
+
+    def __init__(self):
+        # Major
+        self.players = [PlayerInfo() for _ in range(4)]
+        self.table = TableInfo()
+        self.me = -1
+        # Minor
+        self.pass_to = ''
+        self.receive_from = ''
+        self.picked = []
+        self.received = []
+        self.who_exposed = -1
+        self.candidate = []
 
     def get_pos(self):
         # (0, 1, 2, 3)
@@ -64,11 +88,11 @@ class GameInfo:
 
         my_hand = self.players[self.me].hand.df
         world_cards = self.table.opening_card.df + my_hand
-        
+
         for r,s in self.candidate:
             r = RANK_TO_INT[r]
             wc = list(world_cards.loc[world_cards[s] == 0].index)
-            
+
             level = len(list(filter(lambda x: x < r, wc)))
             if level <= n and level >= max_level:
                 card = '%d%s' % (r, s)
@@ -77,7 +101,7 @@ class GameInfo:
         return card
 
 
-def declare_action(info):
+def declare_action(info: GameInfo):
     my_hand = info.players[info.me].hand.df
     columns = info.players[info.me].hand.columns
 
@@ -201,10 +225,9 @@ class RuleBot(PokerBot):
             if self.info.players[i].name == name:
                 return i
         raise Exception('Player %r not found' % name)
-        
 
     # new_deal
-    def receive_cards(self, data): 
+    def receive_cards(self, data):
         self.reset() # XXX
 
         dealNumber = data['dealNumber']
@@ -214,12 +237,12 @@ class RuleBot(PokerBot):
         for player in players:
             playerNumber = player['playerNumber'] -1
             playerName = player['playerName']
-            
+
             self.info.players[playerNumber].name = playerName
             system_log.show_message('new_deal %s' % self.info.players[playerNumber].name)
 
         self.info.table.n_game = dealNumber
-        
+
         self.get_hand(data)
 
     def pass_cards(self, data):
@@ -288,4 +311,3 @@ class RuleBot(PokerBot):
 
     def game_over(self, data):
         pass
-

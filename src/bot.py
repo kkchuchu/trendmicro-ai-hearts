@@ -1,5 +1,6 @@
 from system_log import system_log
 from card import Card
+import numpy as np
 
 class PokerBot(object):
 
@@ -333,4 +334,3 @@ class LowPlayBot(PokerBot):
             message = "Player name:{}, Pick card:{}, Is timeout:{}".format(key,pick_his.get(key),is_timeout)
             system_log.show_message(message)
             system_log.save_logs(message)
-
