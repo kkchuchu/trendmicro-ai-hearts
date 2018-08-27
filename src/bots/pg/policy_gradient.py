@@ -83,8 +83,8 @@ class PolicyGradient(BaseBot):
         with tf.name_scope('train'):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
-    def declare_action(self, observation):
-        prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: observation.reshape(1, self.n_features)})
+    def declare_action(self, game_info):
+        prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: game_info.to_array().reshape(1, self.n_features)})
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
         return action
 
