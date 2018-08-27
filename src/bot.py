@@ -90,7 +90,7 @@ class PokerBot(object):
                         receive_cards.append(Card(card))
                     break
             return receive_cards
-        except Exception, e:
+        except Exception as e:
             system_log.show_message(e.message)
             raise e
             return None
@@ -158,7 +158,7 @@ class PokerBot(object):
                 receive_cards[player_name]=player_receive
                 picked_cards[player_name]=player_picked
             return final_scores, initial_cards,receive_cards,picked_cards
-        except Exception, e:
+        except Exception as e:
             system_log.show_message(e.message)
             raise e
             return None
@@ -172,7 +172,7 @@ class PokerBot(object):
                 palyer_score=player['gameScore']
                 receive_cards[player_name]=palyer_score
             return receive_cards
-        except Exception, e:
+        except Exception as e:
             system_log.show_message(e.message)
             raise e
             return None
@@ -267,7 +267,7 @@ class LowPlayBot(PokerBot):
                 if player['exposedCards']!=[] and len(player['exposedCards'])>0 and player['exposedCards']!=None:
                     expose_player=player['playerName']
                     expose_card=player['exposedCards']
-            except Exception, e:
+            except Exception as e:
                 system_log.show_message(e.message)
                 system_log.save_logs(e.message)
                 raise e
@@ -301,7 +301,7 @@ class LowPlayBot(PokerBot):
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
                 system_log.show_message(message)
                 system_log.save_logs(message)
-        except Exception, e:
+        except Exception as e:
             system_log.show_message(e.message)
             raise e
 

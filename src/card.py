@@ -36,14 +36,14 @@ class Cards:
         self.index = [i for i in range(2, 15)]
         self.columns = ['S', 'H', 'D', 'C']
         self.df = pd.DataFrame(0, index=self.index, columns=self.columns)
-        
+
         if cards:
             for card in cards:
                 self.add_card(card)
-                
+
     def add_card(self, card):
-	r = RANK_TO_INT[card[0]]
-	s = card[1]
+        r = RANK_TO_INT[card[0]]
+        s = card[1]
         self.df.loc[r, s] = 1
 
     def get_suit_count(self):
