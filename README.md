@@ -21,3 +21,6 @@ Install requirement.txt
 ``` sh 
 pip install -r requirement.txt
 ```
+
+# Implement rule-based bot
+The example is at *rule_bot.py*, and you can simply implement the function `declare_action` to fulfill the Hearts SDK. The `declare_action` uses the `GameInfo` to determine what action should be taken, in addition, the `declare_action` will also apply to the **gym** environment.
