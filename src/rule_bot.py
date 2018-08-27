@@ -24,7 +24,7 @@ class TableInfo:
 
 class GameInfo:
     # Major
-    players = [PlayerInfo() for _ in range(5)] # 0 is unused FIXME
+    players = [PlayerInfo() for _ in range(4)]
     table = TableInfo()
     me = -1
     # Minor
@@ -73,7 +73,10 @@ def declare_action(info):
         return expose_card
     else:
         # TODO
-        pick_card = random.choice(info.candidate)
+        if info.candidate:
+            pick_card = random.choice(info.candidate)
+        else:
+            pick_card = None
         system_log.show_message('pick_card %r' % pick_card)
         return pick_card
 
@@ -89,16 +92,14 @@ class RuleBot(PokerBot):
     def get_hand(self, data):
         selfdata = data['self']
 
-        self.info.me = selfdata['playerNumber']
+        self.info.me = selfdata['playerNumber'] - 1
         cards = selfdata['cards']
         self.info.players[self.info.me].hand = Cards(cards)
 
     def get_player_id(self, name):
-        for i in range(5): # FIXME
-            system_log.show_message(self.info.players[i].name)
+        for i in range(4):
             if self.info.players[i].name == name:
                 return i
-        system_log.show_message(self.info.players)
         raise Exception('Player %r not found' % name)
         
 
@@ -110,15 +111,13 @@ class RuleBot(PokerBot):
         players = data['players']
         selfdata = data['self']
 
-        system_log.show_message('new_deal')
-        system_log.show_message(data)
         for player in players:
-            playerNumber = player['playerNumber']
+            playerNumber = player['playerNumber'] -1
             playerName = player['playerName']
             
             self.info.players[playerNumber].name = playerName
-
             system_log.show_message('new_deal %s' % self.info.players[playerNumber].name)
+
         self.info.table.n_game = dealNumber
         
         self.get_hand(data)
@@ -147,7 +146,7 @@ class RuleBot(PokerBot):
         for player in players:
             if 'AH' in player['exposedCards']:
                 self.info.table.heart_exposed = True
-                self.info.who_exposed = player['playerNumber']
+                self.info.who_exposed = player['playerNumber'] - 1
                 break
 
     def new_round(self, data):
