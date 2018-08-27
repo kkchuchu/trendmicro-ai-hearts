@@ -64,16 +64,35 @@ class GameInfo:
         card = None
 
         if self.table.first_draw:
-            max_rank = self.candidate[0][0]
+            max_rank = RANK_TO_INT[self.candidate[0][0]]
+            suit = self.candidate[0][1]
             max_board = self.get_board_max()
             for r, s in self.candidate:
                 r = RANK_TO_INT[r]
-                if s == self.table.first_draw[1] and r < max_board and r > max_rank:
+                if s == self.table.first_draw[1] and r <= max_board and r >= max_rank:
                     max_rank = r
-            return '%s%s' % (INT_TO_RANK[max_rank], self.table.first_draw[1])
+                    suit = s
+            system_log.show_message(u'後手：挑最大的安全牌出')
+            return '%s%s' % (INT_TO_RANK[max_rank], suit)
         else:
-            system_log.show_message(u'第一個出的規則還沒想')
-            pass
+            world_cards = self.players[self.me].hand.df + self.table.opening_card.df
+            max_less = 0
+            max_target = None
+            for r, s in self.candidate:
+                r = RANK_TO_INT[r]
+                wc = list(world_cards.loc[world_cards[s] == 0].index)
+                lc = filter(lambda x: x < r, wc)
+
+                system_log.show_message('r %r' % r)
+                system_log.show_message('wc %r' % wc)
+                system_log.show_message('lc %r' % lc)
+                less_count = len(list(lc))
+                if less_count <= n and less_count >= max_less:
+                    max_less = less_count
+                    max_target = '%s%s' % (INT_TO_RANK[r], s)
+
+            system_log.show_message(u'先手：挑小的出')
+            return max_target
 
         return card
 
@@ -164,6 +183,7 @@ def declare_action(info):
                         r = RANK_TO_INT[r]
                         if s == info.table.first_draw[1] and r < max_rank and r >= max_safe:
                             max_safe = r
+                    system_log.show_message(u'最後手：場上有分，挑小的出')
                     return '%s%s' % (INT_TO_RANK[max_safe], info.table.first_draw[1])
                 else:
                     max_rank = 2
@@ -171,10 +191,10 @@ def declare_action(info):
                         r = RANK_TO_INT[r]
                         if s == info.table.first_draw[1] and r >= max_rank:
                             max_rank = r
+                    system_log.show_message(u'最後手：場上無分，挑大的出')
                     return '%s%s' % (INT_TO_RANK[max_rank], info.table.first_draw[1])
 
             pick_card = info.get_possiable_min(3 - pos)
-            system_log.show_message(u'丟安全中的最大牌 %r' % pick_card)
 
             return pick_card
 
