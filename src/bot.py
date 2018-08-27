@@ -1,63 +1,9 @@
-# utf-8
+from system_log import system_log
+from card import Card
 
-import gym
-import sys
+class PokerBot(object):
 
-
-class Card:
-
-    TREND2GYMSUIT = {'S':0, 'H':1, 'D':2, 'C':3}
-
-    # Takes in strings of the format: "As", "Tc", "6d"
-    def __init__(self, card_string):
-        self.suit_value_dict = {"T": 10, "J": 11, "Q": 12, "K": 13, "A": 14,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9}
-        self.suit_index_dict = {"S": 0, "C": 1, "H": 2, "D": 3}
-        self.val_string = "AKQJT98765432"
-        value, self.suit = card_string[0], card_string[1]
-        self.value = self.suit_value_dict[value]
-        self.suit_index = self.suit_index_dict[self.suit]
-
-    def __str__(self):
-        return self.val_string[14 - self.value] + self.suit
-
-    def toString(self):
-        return self.val_string[14 - self.value] + self.suit
-
-    def __repr__(self):
-        return self.val_string[14 - self.value] + self.suit
-
-    def __eq__(self, other):
-        if self is None:
-            return other is None
-        elif other is None:
-            return False
-        return self.value == other.value and self.suit == other.suit
-
-    def __hash__(self):
-        return hash(self.value.__hash__()+self.suit.__hash__())
-
-    def gym_suit_index(self):
-        return Card.TREND2GYMSUIT[self.suit]
-
-    def gym_value_index(self):
-        return self.value - 2
-
-
-class BotBase:
-
-    def __init__(self):
-        self._reset_card_history()
-
-    def choose_action(self):
-        raise NotImplementedError()
-
-    def _reset_card_history(self):
-        self.player_info = {}
-
-
-class TrendBotBase(BotBase):
-
-    def __init__(self, player_name):
+    def __init__(self,player_name):
         self.round_cards_history=[]
         self.pick_his={}
         self.round_cards = {}
@@ -67,9 +13,7 @@ class TrendBotBase(BotBase):
         self.game_score_cards = {Card("QS"), Card("TC"), Card("2H"), Card("3H"), Card("4H"), Card("5H"), Card("6H"),
                            Card("7H"), Card("8H"), Card("9H"), Card("TH"), Card("JH"), Card("QH"), Card("KH"),
                            Card("AH")}
-
-        self.reset_card_his()
-
+    #@abstractmethod
     def receive_cards(self,data):
         err_msg = self.__build_err_msg("receive_cards")
         raise NotImplementedError(err_msg)
@@ -77,42 +21,22 @@ class TrendBotBase(BotBase):
         err_msg = self.__build_err_msg("pass_cards")
         raise NotImplementedError(err_msg)
     def pick_card(self,data):
-        self.choose_action()
-
+        err_msg = self.__build_err_msg("pick_card")
+        raise NotImplementedError(err_msg)
     def expose_my_cards(self,yourcards):
         err_msg = self.__build_err_msg("expose_my_cards")
         raise NotImplementedError(err_msg)
     def expose_cards_end(self,data):
         err_msg = self.__build_err_msg("expose_cards_announcement")
         raise NotImplementedError(err_msg)
+    def new_round(self, data):
+        pass
     def receive_opponent_cards(self,data):
         err_msg = self.__build_err_msg("receive_opponent_cards")
         raise NotImplementedError(err_msg)
-
     def round_end(self,data):
-        self._set_player_info_in_round_end(data)
-
-    def _set_player_info_in_round_end(self, data):
-        players=data['players']
-        (round_first_player, first_player_index) = self._get_round_first_player(data)
-        round_first_card = Card(players[first_player_index]['roundCard'])
-        round_cards = [(round_first_player, round_first_card)]
-        for player in players:
-            player_name=player['playerName']
-            round_cards.append((player_name, Card(player['roundCard'])))
-
-        who_get_card = round_first_player
-        for player_name, card in round_cards[1:]:
-            if card.suit != round_first_card.suit:
-                pass
-            else:
-                if card.gym_value_index() > round_first_card.gym_value_index():
-                    who_get_card = player_name
-
-        for _, card in round_cards:
-            self.player_info[who_get_card].shou_de[card.gym_suit_index()][card.gym_value_index()] = 1
-
-
+        err_msg = self.__build_err_msg("round_end")
+        raise NotImplementedError(err_msg)
     def deal_end(self,data):
         err_msg = self.__build_err_msg("deal_end")
         raise NotImplementedError(err_msg)
@@ -126,8 +50,6 @@ class TrendBotBase(BotBase):
     def reset_card_his(self):
         self.round_cards_history = []
         self.pick_his={}
-        self.enable_heart = 0
-        self._reset_card_history()
 
     def get_card_history(self):
         return self.round_cards_history
@@ -157,32 +79,7 @@ class TrendBotBase(BotBase):
         self.round_cards_history.append(Card(turnCard))
         self.pick_history(data,is_timeout,opp_pick)
 
-
-        if (self.player_info.get(turnPlayer)) is None:
-            self.player_info[turnPlayer] = PlayerInfo(name=turnPlayer, hash_id=turnPlayer)
-
-        the_card = Card(turnCard)
-        self.player_info[turnPlayer].guo_qu_chu_guo[the_card.gym_suit_index()][the_card.gym_value_index()] = 1
-
-        (round_first_player, first_player_index) = self._get_round_first_player(data)
-        if turnPlayer == round_first_player and turnCard[1] == 'H' and self.enable_heart == 0:
-            self.player_info[turnPlayer].que_men = [1, 0, 1, 1]
-        else:
-            round_first_card = players[first_player_index]['roundCard']
-            if round_first_card[1] != turnCard[1]:
-                self.player_info[turnPlayer].que_men[Card(round_first_card).gym_suit_index()] = 1 
-        if turnCard[1] == "H":
-            self.enable_heart = 1
-
-    def _get_round_first_player(self, data):
-        players = data['players']
-        round_first_player = data['roundPlayers'][0]
-        for player in players:
-            if player['playerName'] == round_first_player:
-                first_player_index = player['playerNumber'] - 1 # origin value is 1, 2, 3, 4
-        return round_first_player, first_player_index
-
-    def get_cards(self, data):
+    def get_cards(self,data):
         try:
             receive_cards=[]
             players=data['players']
@@ -193,8 +90,9 @@ class TrendBotBase(BotBase):
                         receive_cards.append(Card(card))
                     break
             return receive_cards
-        except Exception as e:
-            system_log.show_message(e)
+        except Exception, e:
+            system_log.show_message(e.message)
+            raise e
             return None
 
     def get_round_scores(self,is_expose_card=False,data=None):
@@ -260,8 +158,9 @@ class TrendBotBase(BotBase):
                 receive_cards[player_name]=player_receive
                 picked_cards[player_name]=player_picked
             return final_scores, initial_cards,receive_cards,picked_cards
-        except Exception as e:
-            system_log.show_message(e)
+        except Exception, e:
+            system_log.show_message(e.message)
+            raise e
             return None
 
     def get_game_scores(self,data):
@@ -273,85 +172,165 @@ class TrendBotBase(BotBase):
                 palyer_score=player['gameScore']
                 receive_cards[player_name]=palyer_score
             return receive_cards
-        except Exception as e:
-            system_log.show_message(e)
+        except Exception, e:
+            system_log.show_message(e.message)
+            raise e
             return None
 
 
-class GymBotBase(BotBase):
+class LowPlayBot(PokerBot):
 
-    def __init__(self, player_position):
-        self.my_position = player_position
-        self._reset_card_history()
+    def __init__(self,name):
+        super(LowPlayBot,self).__init__(name)
+        self.my_hand_cards=[]
+        self.expose_card=False
+        self.my_pass_card=[]
+    def receive_cards(self,data):
+        self.my_hand_cards=self.get_cards(data)
 
-    def reset(self):
-        self._reset_card_history()
+    def pass_cards(self,data):
+        cards = data['self']['cards']
+        self.my_hand_cards = []
+        for card_str in cards:
+            card = Card(card_str)
+            self.my_hand_cards.append(card)
+        pass_cards=[]
+        count=0
+        for i in range(len(self.my_hand_cards)):
+            card=self.my_hand_cards[len(self.my_hand_cards) - (i + 1)]
+            if card==Card("QS"):
+                pass_cards.append(card)
+                count+=1
+            elif card==Card("TC"):
+                pass_cards.append(card)
+                count += 1
+        for i in range(len(self.my_hand_cards)):
+            card = self.my_hand_cards[len(self.my_hand_cards) - (i + 1)]
+            if card.suit_index==2:
+                pass_cards.append(card)
+                count += 1
+                if count ==3:
+                    break
+        if count <3:
+            for i in range(len(self.my_hand_cards)):
+                card = self.my_hand_cards[len(self.my_hand_cards) - (i + 1)]
+                if card not in self.game_score_cards:
+                    pass_cards.append(card)
+                    count += 1
+                    if count ==3:
+                        break
+        return_values=[]
+        for card in pass_cards:
+            return_values.append(card.toString())
+        message="Pass Cards:{}".format(return_values)
+        system_log.show_message(message)
+        system_log.save_logs(message)
+        self.my_pass_card=return_values
+        return return_values
 
-    def declare_action(self, player_obs, table_obs):
-        self.player_obs2features(player_obs, table_obs)
-        return self.choose_action()
+    def pick_card(self,data):
+        cadidate_cards=data['self']['candidateCards']
+        cards = data['self']['cards']
+        self.my_hand_cards = []
+        for card_str in cards:
+            card = Card(card_str)
+            self.my_hand_cards.append(card)
+        message = "My Cards:{}".format(self.my_hand_cards)
+        system_log.show_message(message)
+        card_index=0
+        message = "Pick Card Event Content:{}".format(data)
+        system_log.show_message(message)
+        message = "Candidate Cards:{}".format(cadidate_cards)
+        system_log.show_message(message)
+        system_log.save_logs(message)
+        message = "Pick Card:{}".format(cadidate_cards[card_index])
+        system_log.show_message(message)
+        system_log.save_logs(message)
+        return cadidate_cards[card_index]
 
-    def choose_action(self):
-        return 1
+    def expose_my_cards(self,yourcards):
+        expose_card=[]
+        for card in self.my_hand_cards:
+            if card==Card("AH"):
+                expose_card.append(card.toString())
+        message = "Expose Cards:{}".format(expose_card)
+        system_log.show_message(message)
+        system_log.save_logs(message)
+        return expose_card
 
-    def player_obs2features(self, player_obs, table_obs):
-        n_round, start_pos, cur_pos, exchanged, hearts_occur, n_game,\
-            finish_expose, heart_exposed,\
-            board, first_draw, bank = table_obs
+    def expose_cards_end(self,data):
+        players = data['players']
+        expose_player=None
+        expose_card=None
+        for player in players:
+            try:
+                if player['exposedCards']!=[] and len(player['exposedCards'])>0 and player['exposedCards']!=None:
+                    expose_player=player['playerName']
+                    expose_card=player['exposedCards']
+            except Exception, e:
+                system_log.show_message(e.message)
+                system_log.save_logs(e.message)
+                raise e
+        if expose_player!=None and expose_card!=None:
+            message="Player:{}, Expose card:{}".format(expose_player,expose_card)
+            system_log.show_message(message)
+            system_log.save_logs(message)
+            self.expose_card=True
+        else:
+            message="No player expose card!"
+            system_log.show_message(message)
+            system_log.save_logs(message)
+            self.expose_card=False
 
-        players, my_score, \
-            hand, income = player_obs
+    def receive_opponent_cards(self,data):
+        self.my_hand_cards = self.get_cards(data)
+        players = data['players']
+        for player in players:
+            player_name = player['playerName']
+            if player_name == self.player_name:
+                picked_cards = player['pickedCards']
+                receive_cards = player['receivedCards']
+                message = "User Name:{}, Picked Cards:{}, Receive Cards:{}".format(player_name, picked_cards,receive_cards)
+                system_log.show_message(message)
+                system_log.save_logs(message)
 
-        """
-        board: 這一round的牌
-        bank : 上一round的結果
-        """
+    def round_end(self,data):
+        try:
+            round_scores=self.get_round_scores(self.expose_card, data)
+            for key in round_scores.keys():
+                message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
+                system_log.show_message(message)
+                system_log.save_logs(message)
+        except Exception, e:
+            system_log.show_message(e.message)
+            raise e
 
-        if exchanged or n_game % 4 == 0: # 過了換牌步驟
-            if n_round == 0: # bank store last round information even game number is changed.
-                bank = []
+    def deal_end(self,data):
+        self.my_hand_cards=[]
+        self.expose_card = False
+        deal_scores,initial_cards,receive_cards,picked_cards=self.get_deal_scores(data)
+        message = "Player name:{}, Pass Cards:{}".format(self.player_name, self.my_pass_card)
+        system_log.show_message(message)
+        system_log.save_logs(message)
+        for key in deal_scores.keys():
+            message = "Player name:{}, Deal score:{}".format(key,deal_scores.get(key))
+            system_log.show_message(message)
+            system_log.save_logs(message)
+        for key in initial_cards.keys():
+            message = "Player name:{}, Initial cards:{}, Receive cards:{}, Picked cards:{}".format(key, initial_cards.get(key),receive_cards.get(key),picked_cards.get(key))
+            system_log.show_message(message)
+            system_log.save_logs(message)
 
-            for pos, (number, rank) in enumerate(board):
-                if -1 not in (number, rank):
-                    self.player_info[pos].guo_qu_chu_guo[rank][number] = 1
-            for pos, (number, rank) in enumerate(bank):
-                self.player_info[pos].guo_qu_chu_guo[rank][number] = 1
+    def game_over(self,data):
+        game_scores = self.get_game_scores(data)
+        for key in game_scores.keys():
+            message = "Player name:{}, Game score:{}".format(key, game_scores.get(key))
+            system_log.show_message(message)
+            system_log.save_logs(message)
 
+    def pick_history(self,data,is_timeout,pick_his):
+        for key in pick_his.keys():
+            message = "Player name:{}, Pick card:{}, Is timeout:{}".format(key,pick_his.get(key),is_timeout)
+            system_log.show_message(message)
+            system_log.save_logs(message)
 
-            for (number, rank) in bank:
-                self.player_info[start_pos].shou_de[rank][number] = 1
-
-            if len(bank) > 0:
-                color = bank[self.last_round_start_pos][1]
-                for pos, (number, rank) in enumerate(bank):
-                    if rank != color: #缺門
-                        self.player_info[pos].que_men[color] = 1
-            color = board[start_pos][1]
-            for pos, (number, rank) in enumerate(board):
-                if -1 not in (number, rank) and rank != color:
-                    self.player_info[pos].que_men[color] = 1
-
-
-        self.last_round_start_pos = start_pos # 更新上round的起始位置
-
-
-class PlayerInfo:
-
-    def __init__(self, name=None, hash_id=None):
-        self.name = name
-        self.hash_id = hash_id
-        self.accumulate_score = 0
-        self.que_men = [None, None, None, None] # 缺門
-        # [S, H, D, C]
-        self.guo_qu_chu_guo = self._init_card() #過去出過的牌
-        self.shou_de = self._init_card() # 每個人收的
-        self.yi_zhi_de = self._init_card() # 已知的牌，換的
-
-    def _init_card(self):
-        return [[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-                [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-                [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-                [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]]
-
-    def get_shape(self):
-        return
