@@ -83,30 +83,25 @@ class PokerSocket(object):
            }))
            self.ws.close()
     def doListen(self):
-        try:
-            self.ws = create_connection(self.connect_url)
-            self.ws.send(json.dumps({
-                "eventName": "join",
-                "data": {
-                    "playerNumber":self.player_number,
-                    "playerName":self.player_name,
-                    "token":self.token
-                }
-            }))
-            while 1:
-                result = self.ws.recv()
-                msg = json.loads(result)
-                event_name = msg["eventName"]
-                data = msg["data"]
-                #system_log.show_message(event_name)
-                system_log.save_logs(event_name)
-                #system_log.show_message(data)
-                system_log.save_logs(data)
-                self.takeAction(event_name, data)
-        except Exception, e:
-            system_log.show_message(e.message)
-            self.doListen()
-            raise e
+        self.ws = create_connection(self.connect_url)
+        self.ws.send(json.dumps({
+            "eventName": "join",
+            "data": {
+                "playerNumber":self.player_number,
+                "playerName":self.player_name,
+                "token":self.token
+            }
+        }))
+        while 1:
+            result = self.ws.recv()
+            msg = json.loads(result)
+            event_name = msg["eventName"]
+            data = msg["data"]
+            #system_log.show_message(event_name)
+            system_log.save_logs(event_name)
+            #system_log.show_message(data)
+            system_log.save_logs(data)
+            self.takeAction(event_name, data)
 
 def main():
     argv_count=len(sys.argv)

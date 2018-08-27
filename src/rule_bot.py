@@ -1,3 +1,4 @@
+import random
 import pandas as pd
 
 from bot import PokerBot
@@ -23,7 +24,7 @@ class TableInfo:
 
 class GameInfo:
     # Major
-    players = [PlayerInfo() for _ in range(5)] # 0 is unused
+    players = [PlayerInfo() for _ in range(5)] # 0 is unused FIXME
     table = TableInfo()
     me = -1
     # Minor
@@ -53,7 +54,7 @@ def declare_action(info):
                 if i == columns.index('S'):
                     continue
                 if count <= 3 - len(pass_card):
-                    for rank in list(df[df[columns[i]] > 0].index):
+                    for rank in list(my_hand[my_hand[columns[i]] > 0].index):
                         pass_card.append('%s%s' % (INT_TO_RANK[rank], columns[i]))
 
         if len(pass_card) != 3:
@@ -72,7 +73,7 @@ def declare_action(info):
         return expose_card
     else:
         # TODO
-        pick_card = random.choice(candidate)
+        pick_card = random.choice(info.candidate)
         system_log.show_message('pick_card %r' % pick_card)
         return pick_card
 
@@ -93,7 +94,7 @@ class RuleBot(PokerBot):
         self.info.players[self.info.me].hand = Cards(cards)
 
     def get_player_id(self, name):
-        for i in range(4):
+        for i in range(5): # FIXME
             system_log.show_message(self.info.players[i].name)
             if self.info.players[i].name == name:
                 return i
@@ -117,6 +118,7 @@ class RuleBot(PokerBot):
             
             self.info.players[playerNumber].name = playerName
 
+            system_log.show_message('new_deal %s' % self.info.players[playerNumber].name)
         self.info.table.n_game = dealNumber
         
         self.get_hand(data)
