@@ -2,7 +2,15 @@ from system_log import system_log
 from card import Card
 import numpy as np
 
-class PokerBot(object):
+from rule_bot import GameInfo
+
+
+class BaseBot:
+
+    def declare_action(info: GameInfo):
+        raise NotImplementedError()
+
+class TrendConnector(object):
 
     def __init__(self,player_name):
         self.round_cards_history=[]
@@ -179,7 +187,11 @@ class PokerBot(object):
             return None
 
 
-class LowPlayBot(PokerBot):
+class GymConnector(object):
+    pass
+
+
+class LowPlayBot(TrendConnector):
 
     def __init__(self,name):
         super(LowPlayBot,self).__init__(name)
