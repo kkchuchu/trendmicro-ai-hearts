@@ -110,5 +110,3 @@ class LowPlayBot(TrendBotBase):
     def pick_history(self,data,is_timeout,pick_his):
         for key in pick_his.keys():
             message = "Player name:{}, Pick card:{}, Is timeout:{}".format(key,pick_his.get(key),is_timeout)
-
-

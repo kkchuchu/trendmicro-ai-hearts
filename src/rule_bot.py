@@ -3,8 +3,7 @@ import random
 import pandas as pd
 import numpy as np
 
-from bot import TrendConnector, BaseBot
-from card import Cards, RANK_TO_INT, INT_TO_RANK
+from bot import *
 from system_log import system_log
 
 

@@ -12,16 +12,6 @@ class AlbertBot(BaseBot):
         return info.candidate[0]
 
 
-INT_TO_SUIT = ['S', 'H', 'D', 'C']
-
-def convert_array_to_card(array_card):
-    if all(array_card == (-1, -1)):
-        return None
-    r, s = array_card[0], array_card[1]
-    rank = INT_TO_RANK[r+2]
-    suit = INT_TO_SUIT[s]
-    return rank+suit
-
 def main():
     env = HeartsEnv()
     obs = env.reset()
