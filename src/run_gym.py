@@ -3,25 +3,65 @@ import sys
 
 sys.path.append('../lib/HeartsEnv')
 from hearts.single import SingleEnv as HeartsEnv
-from bot import GymBotBase
+from bot import BaseBot
+from rule_bot import GameInfo
+from card import INT_TO_RANK
 
+class AlbertBot(BaseBot):
+    def declare_action(self, info):
+        return info.candidate[0]
+
+
+INT_TO_SUIT = ['S', 'H', 'D', 'C']
+
+def convert_array_to_card(array_card):
+    if all(array_card == (-1, -1)):
+        return None
+    r, s = array_card[0], array_card[1]
+    rank = INT_TO_RANK[r+2]
+    suit = INT_TO_SUIT[s]
+    return rank+suit
 
 def main():
-    bot = GymBotBase(HeartsEnv.PLAYER)
     env = HeartsEnv()
     obs = env.reset()
     mode = 'human'
     done = False
-    last_n_game = 1
+    last_first_draw = None
+    albert = AlbertBot()
 
     while not done:
         env.render(mode)
-        player_obs = obs[0]
-        n_round, _, _, _, _, n_game, *_ = obs[1]
-        if n_game > last_n_game:
-            bot.reset()
 
-        action = bot.declare_action(player_obs, obs[1], env)
+        info = GameInfo()
+
+        opponent = obs[0][0]
+        my_score = obs[0][1]
+        my_hand = obs[0][2]
+        my_income = obs[0][3]
+
+        table = obs[1]
+        info.table.n_round, _, _, info.table.exchanged, _, info.table.n_game, \
+        info.table.finish_expose, info.table.heart_exposed, board, (first_draw,), backup = table
+
+        for idx, card in enumerate(backup):
+            info.table.opening_card.add_card(convert_array_to_card(card))
+            if last_first_draw and card[1] != last_first_draw[1]:
+                info.players[idx].no_suit.add(INT_TO_SUIT[card[1]])
+
+        last_first_draw = first_draw
+
+        first_draw = convert_array_to_card(first_draw)
+        info.table.first_draw = first_draw
+
+        for idx, card in enumerate(board):
+            card = convert_array_to_card(card)
+            info.table.append(card)
+            if first_draw and first_draw[1] != card[1]:
+                info.players[idx].no_suit.add(card[1])
+
+
+        action = albert.declare_action(info)
         obs, rew, done, _ = env.step(action)
         
         last_n_game = n_game

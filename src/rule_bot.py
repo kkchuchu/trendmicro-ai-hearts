@@ -11,7 +11,7 @@ from system_log import system_log
 class PlayerInfo:
 
     def __init__(self):
-        self.no_suit = []
+        self.no_suit = set()
         self.income = Cards()
         self.draw = Cards()
         self.hand = Cards()
@@ -300,7 +300,9 @@ class RuleBot(TrendConnector):
     def pick_card(self, data):
         self.info.candidate = data['self']['candidateCards']
         self.get_hand(data)
-        return self.bot.declare_action(self.info)
+        pick_card = self.bot.declare_action(self.info)
+        system_log.show_message('pick_card %r' % pick_card)
+        return pick_card
 
     def turn_end(self, data):
         turnPlayer = data['turnPlayer']
@@ -316,7 +318,7 @@ class RuleBot(TrendConnector):
             self.info.table.first_draw = turnCard
 
         if self.info.table.first_draw[1] != turnCard[1]:
-            self.info.players[player_id].no_suit.append(turnCard[1])
+            self.info.players[player_id].no_suit.add(turnCard[1])
 
     def round_end(self, data):
         roundPlayer = data['roundPlayer']
