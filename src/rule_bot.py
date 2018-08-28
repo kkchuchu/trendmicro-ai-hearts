@@ -89,16 +89,26 @@ class GameInfo:
         card = None
 
         if self.table.first_draw:
-            max_rank = RANK_TO_INT[self.candidate[0][0]]
-            suit = self.candidate[0][1]
+            target = None
+
+            max_rank = 0
             max_board = self.get_board_max()
             for r, s in self.candidate:
                 r = RANK_TO_INT[r]
                 if s == self.table.first_draw[1] and r <= max_board and r >= max_rank:
                     max_rank = r
-                    suit = s
-            system_log.show_message(u'後手：挑最大的安全牌出')
-            return '%s%s' % (INT_TO_RANK[max_rank], suit)
+                    target = '%s%s' % (INT_TO_RANK[r], s)
+            if target:
+                system_log.show_message(u'後手：挑最大的安全牌出')
+            else:
+                for r, s in self.candidate:
+                    r = RANK_TO_INT[r]
+                    if s == self.table.first_draw[1] and r >= max_rank:
+                        max_rank = r
+                        target = '%s%s' % (INT_TO_RANK[r], s)
+                system_log.show_message(u'後手：沒有安全牌，挑最大的出')
+
+            return target
         else:
             world_cards = self.players[self.me].hand.df + self.table.opening_card.df
             max_less = 0
@@ -106,13 +116,13 @@ class GameInfo:
             for r, s in self.candidate:
                 r = RANK_TO_INT[r]
                 wc = list(world_cards.loc[world_cards[s] == 0].index)
-                lc = filter(lambda x: x < r, wc)
+                lc = list(filter(lambda x: x < r, wc))
 
-                less_count = len(list(lc))
+                less_count = len(lc)
                 if less_count <= n and less_count >= max_less:
                     max_less = less_count
                     max_target = '%s%s' % (INT_TO_RANK[r], s)
-                    system_log.show_message('r %r n %r' % (r, n))
+                    system_log.show_message('r %d%s n %r' % (r, s, n))
                     system_log.show_message('wc %r' % wc)
                     system_log.show_message('lc %r' % lc)
 
@@ -207,13 +217,25 @@ class ChunTingsBot(BaseBot):
 
             if pos == LAST:
                 max_rank = info.get_board_max()
-                max_safe = 2
+                max_safe = 0
+                target = None
                 for r,s in info.candidate:
                     r = RANK_TO_INT[r]
                     if s == info.table.first_draw[1] and r < max_rank and r >= max_safe:
                         max_safe = r
-                system_log.show_message(u'最後手：挑安全牌中最大的出')
-                return '%s%s' % (INT_TO_RANK[max_safe], info.table.first_draw[1])
+                        target = '%s%s' % (INT_TO_RANK[r], s)
+                if target:
+                    system_log.show_message(u'最後手：挑安全牌中最大的出')
+                else:
+                    max_rank = 0
+                    for r,s in info.candidate:
+                        r = RANK_TO_INT[r]
+                        if s == info.table.first_draw[1] and r > max_rank:
+                            max_safe = r
+                            target = '%s%s' % (INT_TO_RANK[r], s)
+                    system_log.show_message(u'最後手：沒安全牌，挑最大的出')
+
+                return target
 
             pick_card = info.get_possiable_min(3 - pos)
 
@@ -300,6 +322,8 @@ class RuleBot(TrendConnector):
     def pick_card(self, data):
         self.info.candidate = data['self']['candidateCards']
         self.get_hand(data)
+        system_log.show_message('board %r candidate %r' % (self.info.table.board, self.info.candidate))
+
         pick_card = self.bot.declare_action(self.info)
         system_log.show_message('pick_card %r' % pick_card)
         return pick_card
@@ -324,6 +348,7 @@ class RuleBot(TrendConnector):
         roundPlayer = data['roundPlayer']
         player_id = self.get_player_id(roundPlayer)
 
+        system_log.show_message('%s receives %r' % (roundPlayer, self.info.table.board))
         for card in self.info.table.board:
             self.info.players[player_id].income.add_card(card)
 
