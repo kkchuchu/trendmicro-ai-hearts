@@ -2,12 +2,10 @@ from system_log import system_log
 from card import Card
 import numpy as np
 
-from rule_bot import GameInfo
-
 
 class BaseBot:
 
-    def declare_action(info: GameInfo):
+    def declare_action(self, info):
         raise NotImplementedError()
 
 class TrendConnector(object):

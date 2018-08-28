@@ -119,7 +119,7 @@ class GameInfo:
 
 
 class ChunTingsBot(BaseBot):
-    def declare_action(info):
+    def declare_action(self, info):
         my_hand = info.players[info.me].hand.df
         columns = info.players[info.me].hand.columns
 
@@ -264,7 +264,7 @@ class RuleBot(TrendConnector):
     def pass_cards(self, data):
         self.info.pass_to = data['receiver']
         self.info.candidate = data['self']['candidateCards']
-        return declare_action(self.info)
+        return self.bot.declare_action(self.info)
 
     def receive_opponent_cards(self, data):
         selfdata = data['self']
@@ -280,7 +280,7 @@ class RuleBot(TrendConnector):
 
     def expose_my_cards(self, data):
         self.info.candidate = data['self']['candidateCards']
-        return declare_action(self.info)
+        return self.bot.declare_action(self.info)
 
     def expose_cards_end(self, data):
         players = data['players']
