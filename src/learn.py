@@ -21,12 +21,15 @@ def main():
     for i_episode in range(3000):
         observation = env.reset()
         while True:
-            action = bot.declare_action(observation[0], observation[1])
+            n_round, _, _, _, _, n_game, *_ = observation[1]
+            if n_game > last_n_game:
+                bot.reset()
+            action = bot.choose_action(observation)
             observation_, reward, done, _ = env.step(action)
             bot.store_transition(observation, action, reward)
 
             if done:
-                ep_rs_sum = sum(bot.RL.ep_rs)
+                ep_rs_sum = sum(bot.Model.ep_rs)
 
                 if 'running_reward' not in globals():
                     print("Idk what this mean")
@@ -36,7 +39,7 @@ def main():
                 if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
                 print("episode:", i_episode, "  reward:", int(running_reward))
 
-                vt = bot.RL.learn()
+                vt = bot.Model.learn()
 
                 if i_episode == 0:
                     plt.plot(vt)    # plot the episode vt

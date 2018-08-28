@@ -4,7 +4,7 @@ import json
 import sys
 
 from bot import LowPlayBot
-from rule_bot import RuleBot
+from rule_bot import RuleBot, ChunTingsBot
 from system_log import system_log
 
 class PokerSocket(object):
@@ -116,7 +116,7 @@ def main():
         token="12345678"
         connect_url="ws://localhost:8080/"
     #sample_bot=LowPlayBot(player_name)
-    sample_bot=RuleBot(player_name)
+    sample_bot=RuleBot(player_name, ChunTingsBot())
     myPokerSocket=PokerSocket(player_name,player_number,token,connect_url,sample_bot)
     myPokerSocket.doListen()
 

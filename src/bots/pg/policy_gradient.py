@@ -11,35 +11,19 @@ gym: 0.8.0
 import numpy as np
 import tensorflow as tf
 
-from bot import GymBotBase
+from bot import BaseBot
 
 # reproducible
 np.random.seed(1)
 tf.set_random_seed(1)
 
 
-class MyPolicyBot(GymBotBase):
-
-    def __init__(self, player_position):
-        GymBotBase.__init__(self, player_position)
-        self.Model = PolicyGradient(
-            n_actions=52,
-            n_features=,
-            learning_rate=0.02,
-            reward_decay=0.99,
-            # output_graph=True,
-        )
-
-    def choose_action(self):
-        pass
-
-
-class PolicyGradient:
+class PolicyGradient(BaseBot):
 
     def __init__(
             self,
             n_actions,
-            n_features,
+            n_features, # #player * (4 + 52 * 2) + n_game + n_round + 4 * score + start_pos
             learning_rate=0.01,
             reward_decay=0.95,
             output_graph=False,
@@ -99,8 +83,8 @@ class PolicyGradient:
         with tf.name_scope('train'):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
-    def choose_action(self, observation):
-        prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: observation[np.newaxis, :]})
+    def declare_action(self, game_info):
+        prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: game_info.to_array().reshape(1, self.n_features)})
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
         return action
 

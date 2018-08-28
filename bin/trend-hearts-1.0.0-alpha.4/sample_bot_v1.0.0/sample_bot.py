@@ -1,16 +1,60 @@
-from system_log import system_log
-from card import Card
-import numpy as np
+#coding=UTF-8
+from abc import abstractmethod
 
-from rule_bot import GameInfo
+from websocket import create_connection
+import json
+import logging
+import sys
 
+class Log(object):
+    def __init__(self,is_debug=True):
+        self.is_debug=is_debug
+        self.msg=None
+        self.logger = logging.getLogger('hearts_logs')
+        hdlr = logging.FileHandler('hearts_logs.log')
+        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        hdlr.setFormatter(formatter)
+        self.logger.addHandler(hdlr)
+        self.logger.setLevel(logging.INFO)
+    def show_message(self,msg):
+        if self.is_debug:
+            print msg
+    def save_logs(self,msg):
+        self.logger.info(msg)
 
-class BaseBot:
+IS_DEBUG=True
+system_log=Log(IS_DEBUG)
 
-    def declare_action(info: GameInfo):
-        raise NotImplementedError()
+class Card:
 
-class TrendConnector(object):
+    # Takes in strings of the format: "As", "Tc", "6d"
+    def __init__(self, card_string):
+        self.suit_value_dict = {"T": 10, "J": 11, "Q": 12, "K": 13, "A": 14,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9}
+        self.suit_index_dict = {"S": 0, "C": 1, "H": 2, "D": 3}
+        self.val_string = "AKQJT98765432"
+        value, self.suit = card_string[0], card_string[1]
+        self.value = self.suit_value_dict[value]
+        self.suit_index = self.suit_index_dict[self.suit]
+
+    def __str__(self):
+        return self.val_string[14 - self.value] + self.suit
+
+    def toString(self):
+        return self.val_string[14 - self.value] + self.suit
+
+    def __repr__(self):
+        return self.val_string[14 - self.value] + self.suit
+    def __eq__(self, other):
+        if self is None:
+            return other is None
+        elif other is None:
+            return False
+        return self.value == other.value and self.suit == other.suit
+
+    def __hash__(self):
+        return hash(self.value.__hash__()+self.suit.__hash__())
+
+class PokerBot(object):
 
     def __init__(self,player_name):
         self.round_cards_history=[]
@@ -38,8 +82,6 @@ class TrendConnector(object):
     def expose_cards_end(self,data):
         err_msg = self.__build_err_msg("expose_cards_announcement")
         raise NotImplementedError(err_msg)
-    def new_round(self, data):
-        pass
     def receive_opponent_cards(self,data):
         err_msg = self.__build_err_msg("receive_opponent_cards")
         raise NotImplementedError(err_msg)
@@ -99,9 +141,8 @@ class TrendConnector(object):
                         receive_cards.append(Card(card))
                     break
             return receive_cards
-        except Exception as e:
+        except Exception, e:
             system_log.show_message(e.message)
-            raise e
             return None
 
     def get_round_scores(self,is_expose_card=False,data=None):
@@ -167,9 +208,8 @@ class TrendConnector(object):
                 receive_cards[player_name]=player_receive
                 picked_cards[player_name]=player_picked
             return final_scores, initial_cards,receive_cards,picked_cards
-        except Exception as e:
+        except Exception, e:
             system_log.show_message(e.message)
-            raise e
             return None
 
     def get_game_scores(self,data):
@@ -181,17 +221,109 @@ class TrendConnector(object):
                 palyer_score=player['gameScore']
                 receive_cards[player_name]=palyer_score
             return receive_cards
-        except Exception as e:
+        except Exception, e:
             system_log.show_message(e.message)
-            raise e
             return None
 
+class PokerSocket(object):
+    ws = ""
+    def __init__(self,player_name,player_number,token,connect_url,poker_bot):
+        self.player_name=player_name
+        self.connect_url=connect_url
+        self.player_number=player_number
+        self.poker_bot=poker_bot
+        self.token=token
 
-class GymConnector(object):
-    pass
+    def takeAction(self,action, data):
+       if  action=="new_deal":
+           self.poker_bot.receive_cards(data)
+       elif action=="pass_cards":
+           pass_cards=self.poker_bot.pass_cards(data)
+           self.ws.send(json.dumps(
+                {
+                    "eventName": "pass_my_cards",
+                    "data": {
+                        "dealNumber": data['dealNumber'],
+                        "cards": pass_cards
+                    }
+                }))
+       elif action=="receive_opponent_cards":
+           self.poker_bot.receive_opponent_cards(data)
+       elif action=="expose_cards":
+           export_cards = self.poker_bot.expose_my_cards(data)
+           if export_cards!=None:
+               self.ws.send(json.dumps(
+                   {
+                       "eventName": "expose_my_cards",
+                       "data": {
+                           "dealNumber": data['dealNumber'],
+                           "cards": export_cards
+                       }
+                   }))
+       elif action=="expose_cards_end":
+           self.poker_bot.expose_cards_end(data)
+       elif action=="your_turn":
+           pick_card = self.poker_bot.pick_card(data)
+           message="Send message:{}".format(json.dumps(
+                {
+                   "eventName": "pick_card",
+                   "data": {
+                       "dealNumber": data['dealNumber'],
+                       "roundNumber": data['roundNumber'],
+                       "turnCard": pick_card
+                   }
+               }))
+           system_log.show_message(message)
+           system_log.save_logs(message)
+           self.ws.send(json.dumps(
+               {
+                   "eventName": "pick_card",
+                   "data": {
+                       "dealNumber": data['dealNumber'],
+                       "roundNumber": data['roundNumber'],
+                       "turnCard": pick_card
+                   }
+               }))
+       elif action=="turn_end":
+           self.poker_bot.turn_end(data)
+       elif action=="round_end":
+           self.poker_bot.round_end(data)
+       elif action=="deal_end":
+           self.poker_bot.deal_end(data)
+           self.poker_bot.reset_card_his()
+       elif action=="game_end":
+           self.poker_bot.game_over(data)
+           self.ws.send(json.dumps({
+               "eventName": "stop_game",
+               "data": {}
+           }))
+           self.ws.close()
+    def doListen(self):
+        try:
+            self.ws = create_connection(self.connect_url)
+            self.ws.send(json.dumps({
+                "eventName": "join",
+                "data": {
+                    "playerNumber":self.player_number,
+                    "playerName":self.player_name,
+                    "token":self.token
+                }
+            }))
+            while 1:
+                result = self.ws.recv()
+                msg = json.loads(result)
+                event_name = msg["eventName"]
+                data = msg["data"]
+                system_log.show_message(event_name)
+                system_log.save_logs(event_name)
+                system_log.show_message(data)
+                system_log.save_logs(data)
+                self.takeAction(event_name, data)
+        except Exception, e:
+            system_log.show_message(e.message)
+            self.doListen()
 
-
-class LowPlayBot(TrendConnector):
+class LowPlayBot(PokerBot):
 
     def __init__(self,name):
         super(LowPlayBot,self).__init__(name)
@@ -280,10 +412,9 @@ class LowPlayBot(TrendConnector):
                 if player['exposedCards']!=[] and len(player['exposedCards'])>0 and player['exposedCards']!=None:
                     expose_player=player['playerName']
                     expose_card=player['exposedCards']
-            except Exception as e:
+            except Exception, e:
                 system_log.show_message(e.message)
                 system_log.save_logs(e.message)
-                raise e
         if expose_player!=None and expose_card!=None:
             message="Player:{}, Expose card:{}".format(expose_player,expose_card)
             system_log.show_message(message)
@@ -314,9 +445,8 @@ class LowPlayBot(TrendConnector):
                 message = "Player name:{}, Round score:{}".format(key, round_scores.get(key))
                 system_log.show_message(message)
                 system_log.save_logs(message)
-        except Exception as e:
+        except Exception, e:
             system_log.show_message(e.message)
-            raise e
 
     def deal_end(self,data):
         self.my_hand_cards=[]
@@ -346,3 +476,22 @@ class LowPlayBot(TrendConnector):
             message = "Player name:{}, Pick card:{}, Is timeout:{}".format(key,pick_his.get(key),is_timeout)
             system_log.show_message(message)
             system_log.save_logs(message)
+
+def main():
+    argv_count=len(sys.argv)
+    if argv_count>2:
+        player_name = sys.argv[1]
+        player_number = sys.argv[2]
+        token= sys.argv[3]
+        connect_url = sys.argv[4]
+    else:
+        player_name="Eric"
+        player_number=4
+        token="12345678"
+        connect_url="ws://localhost:8080/"
+    sample_bot=LowPlayBot(player_name)
+    myPokerSocket=PokerSocket(player_name,player_number,token,connect_url,sample_bot)
+    myPokerSocket.doListen()
+
+if __name__ == "__main__":
+    main()
