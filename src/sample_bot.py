@@ -1,5 +1,5 @@
 #coding=UTF-8
-from websocket import create_connection
+from websocket import create_connection, WebSocketConnectionClosedException
 import json
 import sys
 
@@ -93,15 +93,19 @@ class PokerSocket(object):
             }
         }))
         while 1:
-            result = self.ws.recv()
-            msg = json.loads(result)
-            event_name = msg["eventName"]
-            data = msg["data"]
-            #system_log.show_message(event_name)
-            system_log.save_logs(event_name)
-            #system_log.show_message(data)
-            system_log.save_logs(data)
-            self.takeAction(event_name, data)
+            try:
+                result = self.ws.recv()
+                msg = json.loads(result)
+                event_name = msg["eventName"]
+                data = msg["data"]
+                #system_log.show_message(event_name)
+                system_log.save_logs(event_name)
+                #system_log.show_message(data)
+                system_log.save_logs(data)
+                self.takeAction(event_name, data)
+            except WebSocketConnectionClosedException as e:
+                system_log.show_message(e)
+                self.doListen()
 
 def main():
     argv_count=len(sys.argv)
