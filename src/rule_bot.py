@@ -83,6 +83,15 @@ class GameInfo:
                         max_rank = r
         return max_rank
 
+    def get_no_suit(self, suit):
+        count = 0
+        for idx, player in enumerate(self.players):
+            if idx == self.me:
+                continue
+            if suit in player.no_suit:
+                count += 1
+        return count
+
     def get_possiable_min(self, n):
         # 非最後一手
         card = None
@@ -101,9 +110,9 @@ class GameInfo:
                 system_log.show_message(u'後手：挑最大的安全牌出')
             else:
                 for r, s in self.candidate:
-                    if r+s == 'QS':
-                        continue
                     r = RANK_TO_INT[r]
+                    if r >= 12 and s == 'S':
+                        continue
                     if s == self.table.first_draw[1] and r >= max_rank:
                         max_rank = r
                         target = '%s%s' % (INT_TO_RANK[r], s)
@@ -120,7 +129,7 @@ class GameInfo:
                 lc = list(filter(lambda x: x < r, wc))
 
                 less_count = len(lc)
-                if less_count <= n and less_count >= max_less:
+                if less_count <= n - self.get_no_suit(s) and less_count >= max_less:
                     max_less = less_count
                     max_target = '%s%s' % (INT_TO_RANK[r], s)
                     system_log.show_message('r %d%s n %r' % (r, s, n))
@@ -359,6 +368,8 @@ class RuleBot(TrendConnector):
 
         pick_card = self.bot.declare_action(self.info)
         system_log.show_message('pick_card %r' % pick_card)
+        if pick_card not in self.info.candidate:
+            system_log.show_message(u'亂選...')
         return pick_card
 
     def turn_end(self, data):
