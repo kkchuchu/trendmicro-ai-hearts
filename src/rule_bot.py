@@ -102,6 +102,8 @@ class GameInfo:
                 system_log.show_message(u'後手：挑最大的安全牌出')
             else:
                 for r, s in self.candidate:
+                    if r+s == 'QS':
+                        continue
                     r = RANK_TO_INT[r]
                     if s == self.table.first_draw[1] and r >= max_rank:
                         max_rank = r
@@ -113,7 +115,7 @@ class GameInfo:
             world_cards = self.players[self.me].hand.df + self.table.opening_card.df
             max_less = 0
             max_target = None
-            for r, s in self.candidate:
+            for r, s in sorted(self.candidate, key=lambda x: x[1] == 'H'):
                 r = RANK_TO_INT[r]
                 wc = list(world_cards.loc[world_cards[s] == 0].index)
                 lc = list(filter(lambda x: x < r, wc))
@@ -172,11 +174,16 @@ class ChunTingsBot(BaseBot):
             return list(pass_card)
 
         elif not info.table.finish_expose:
-            # TODO
             expose_card = ['AH']
+            totals = list(my_hand.sum())
+            for i, count in enumerate(totals):
+                if count > 6:
+                    ranks = list(my_hand[columns[i]].index)
+                    tops = list(filter(lambda x: x >= 12, ranks))
+                    if len(tops) > 1:
+                        expose_card = []
             return expose_card
         else:
-            # TODO
             FIRST = 0
             LAST = 3
 
@@ -210,10 +217,31 @@ class ChunTingsBot(BaseBot):
                     except ValueError:
                         pass
 
-                    hearts = sorted(list(my_hand.loc[my_hand['H'] == 1].index), reverse=True)
-                    if hearts:
-                        system_log.show_message(u'缺門：紅心從大開始丟')
-                        return '%sH' % INT_TO_RANK[hearts[0]]
+                    if info.table.n_round != 1:
+                        hearts = sorted(list(my_hand.loc[my_hand['H'] == 1].index), reverse=True)
+                        if hearts:
+                            system_log.show_message(u'缺門：紅心從大開始丟')
+                            return '%sH' % INT_TO_RANK[hearts[0]]
+                    else:
+                        max_rank = 0
+                        target = None
+                        for cand in info.candidate:
+                            if card[1] != 'H' and card != 'QS' and RANK_TO_INT[card[0]] > max_rank:
+                                max_rank = RANK_TO_INT[card[0]]
+                                target = card
+                        system_log.show_message(u'缺門：第一回合只能丟大牌')
+                        return target
+
+                    max_rank = 0
+                    target = None
+                    for r,s in info.candidate:
+                        r = RANK_TO_INT[r]
+                        if r > max_rank:
+                            max_safe = r
+                            target = '%s%s' % (INT_TO_RANK[r], s)
+                    system_log.show_message(u'缺門：從最大開始丟')
+                    return target
+
 
             if pos == LAST:
                 max_rank = info.get_board_max()
@@ -302,7 +330,13 @@ class RuleBot(TrendConnector):
 
     def expose_my_cards(self, data):
         self.info.candidate = data['self']['candidateCards']
-        return self.bot.declare_action(self.info)
+        expose_card = self.bot.declare_action(self.info)
+        if expose_card:
+            system_log.show_message('EXPOSE AH %r' % data['self']['cards'])
+        else:
+            system_log.show_message('DO NOT EXPOSE %r' % data['self']['cards'])
+
+        return expose_card
 
     def expose_cards_end(self, data):
         players = data['players']
