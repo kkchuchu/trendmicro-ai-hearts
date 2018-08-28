@@ -23,7 +23,7 @@ class PolicyGradient(BaseBot):
     def __init__(
             self,
             n_actions,
-            n_features, # #player * (4 + 52 * 2) + n_game + n_round + 4 * score + start_pos
+            n_features=438, # #player * (4 + 52 * 2) + n_game + n_round + 4 * score + start_pos
             learning_rate=0.01,
             reward_decay=0.95,
             output_graph=False,
@@ -119,5 +119,3 @@ class PolicyGradient(BaseBot):
         discounted_ep_rs -= np.mean(discounted_ep_rs)
         discounted_ep_rs /= np.std(discounted_ep_rs)
         return discounted_ep_rs
-
-

@@ -1,6 +1,7 @@
 from system_log import system_log
 from card import Card
 import numpy as np
+from card import Cards, RANK_TO_INT, INT_TO_RANK
 
 
 class BaseBot:
@@ -186,7 +187,181 @@ class TrendConnector(object):
 
 
 class GymConnector(object):
-    pass
+
+    INT_TO_SUIT = ['S', 'H', 'D', 'C']
+
+    def __init__(self, position, a_bot: BaseBot):
+        self.pos = position
+        self.ML = a_bot
+        self.bot = a_bot
+
+    def declare_action(self, observation):
+        info = self._gym2game_info(observation)
+        return self.bot.declare_action(info)
+
+    def _gym2game_info(self, observation):
+        info = GameInfo()
+
+        opponent = observation[0][0]
+        my_score = observation[0][1]
+        my_hand = observation[0][2]
+        my_income = observation[0][3]
+
+        table = observation[1]
+        info.table.n_round, _, _, info.table.exchanged, _, info.table.n_game, \
+        info.table.finish_expose, info.table.heart_exposed, board, (first_draw,), backup = table
+
+        for idx, card in enumerate(backup):
+            info.table.opening_card.add_card(self._convert_array_to_card(card))
+            if last_first_draw and card[1] != last_first_draw[1]:
+                info.players[idx].no_suit.add(GymConnector.INT_TO_SUIT[card[1]])
+
+        for idx, player in enumerate(info.players):
+            if idx != 3:
+                player.round_score = opponent[idx * 2]
+                
+                for i, card in enumerate(opponent[idx * 2 + 1]):
+                    player.income.add_card(self._convert_array_to_card(card))
+
+            else:
+                player.round_score = my_score
+            
+
+        last_first_draw = first_draw
+
+        first_draw = self._convert_array_to_card(first_draw)
+        info.table.first_draw = first_draw
+
+        for idx, card in enumerate(board):
+            card = self._convert_array_to_card(card)
+            info.table.append(card)
+            if first_draw and first_draw[1] != card[1]:
+                info.players[idx].no_suit.add(card[1])
+
+        return info
+
+    def _convert_array_to_card(self, array_card):
+        if all(array_card == (-1, -1)):
+            return None
+        r, s = array_card[0], array_card[1]
+        rank = GymConnector.INT_TO_RANK[r+2]
+        suit = GymConnector.INT_TO_SUIT[s]
+        return rank+suit
+
+
+class RuleBot(TrendConnector):
+    def __init__(self, name: str, a_bot: BaseBot):
+        self.bot = a_bot
+        super(RuleBot, self).__init__(name)
+        self.reset()
+
+    def reset(self):
+        self.info = GameInfo()
+        self.info.table.exchanged = False
+
+    def get_hand(self, data):
+        selfdata = data['self']
+
+        self.info.me = selfdata['playerNumber'] - 1
+        cards = selfdata['cards']
+        self.info.players[self.info.me].hand = Cards(cards)
+
+    def get_player_id(self, name):
+        for i in range(4):
+            if self.info.players[i].name == name:
+                return i
+        raise Exception('Player %r not found' % name)
+
+    # new_deal
+    def receive_cards(self, data):
+        self.reset() # XXX
+
+        dealNumber = data['dealNumber']
+        players = data['players']
+        selfdata = data['self']
+
+        for player in players:
+            playerNumber = player['playerNumber'] -1
+            playerName = player['playerName']
+
+            self.info.players[playerNumber].name = playerName
+            system_log.show_message('new_deal %s' % self.info.players[playerNumber].name)
+
+        self.info.table.n_game = dealNumber
+
+        self.get_hand(data)
+
+    def pass_cards(self, data):
+        self.info.pass_to = data['receiver']
+        self.info.candidate = data['self']['candidateCards']
+        return self.bot.declare_action(self.info)
+
+    def receive_opponent_cards(self, data):
+        selfdata = data['self']
+
+        system_log.show_message('receive_opponent_cards')
+        self.info.table.exchanged = True
+
+        self.get_hand(data)
+
+        self.info.receive_from = selfdata['receivedFrom']
+        self.info.picked = selfdata['pickedCards']
+        self.info.received = selfdata['receivedCards']
+
+    def expose_my_cards(self, data):
+        self.info.candidate = data['self']['candidateCards']
+        return self.bot.declare_action(self.info)
+
+    def expose_cards_end(self, data):
+        players = data['players']
+
+        for player in players:
+            if 'AH' in player['exposedCards']:
+                self.info.table.heart_exposed = True
+                self.info.who_exposed = player['playerNumber'] - 1
+                break
+
+    def new_round(self, data):
+        self.info.table.finish_expose = True
+        self.info.table.first_draw = None
+        self.info.table.board = [None for _ in range(4)]
+        self.info.table.n_round = data['roundNumber']
+
+    def pick_card(self, data):
+        self.info.candidate = data['self']['candidateCards']
+        self.get_hand(data)
+        pick_card = self.bot.declare_action(self.info)
+        system_log.show_message('pick_card %r' % pick_card)
+        return pick_card
+
+    def turn_end(self, data):
+        turnPlayer = data['turnPlayer']
+        turnCard = data['turnCard']
+
+        player_id = self.get_player_id(turnPlayer)
+
+        self.info.table.opening_card.add_card(turnCard)
+
+        self.info.players[player_id].draw.add_card(turnCard)
+        self.info.table.board[player_id] = turnCard
+        if not self.info.table.first_draw:
+            self.info.table.first_draw = turnCard
+
+        if self.info.table.first_draw[1] != turnCard[1]:
+            self.info.players[player_id].no_suit.add(turnCard[1])
+
+    def round_end(self, data):
+        roundPlayer = data['roundPlayer']
+        player_id = self.get_player_id(roundPlayer)
+
+        for card in self.info.table.board:
+            self.info.players[player_id].income.add_card(card)
+
+    def deal_end(self, data):
+        pass
+
+    def game_over(self, data):
+        pass
 
 
 class LowPlayBot(TrendConnector):
@@ -344,3 +519,124 @@ class LowPlayBot(TrendConnector):
             message = "Player name:{}, Pick card:{}, Is timeout:{}".format(key,pick_his.get(key),is_timeout)
             system_log.show_message(message)
             system_log.save_logs(message)
+
+
+class PlayerInfo:
+
+    def __init__(self):
+        self.no_suit = set()
+        self.income = Cards()
+        self.draw = Cards()
+        self.hand = Cards()
+        self.name = ''
+        self.round_score = 0
+
+    def to_array(self):
+        # S, H, D, C
+        suit = [-1, -1, -1, -1]
+        if 'S' in self.no_suit:
+            suit[0] = 1
+        elif 'H' in self.no_suit:
+            suit[1] = 1
+        elif 'D' in self.no_suit:
+            suit[2] = 1
+        elif 'C' in self.no_suit:
+            suit[3] = 1
+        suit = np.array(suit)
+        return np.concatenate([self.round_score], suit, self.income.values.reshape(1, 52), self.draw.values.reshape(1, 52))
+
+
+class TableInfo:
+
+    def __init__(self):
+        self.heart_exposed = False
+        self.exchanged = False
+        self.n_round = 0
+        self.n_game = 0
+        self.board = []
+        self.first_draw = None
+        self.opening_card = Cards()
+        self.finish_expose = False
+
+    def to_array(self):
+        return np.array([self.n_game, self.n_round])
+
+
+class GameInfo:
+
+    def __init__(self):
+        # Major
+        self.players = [PlayerInfo() for _ in range(4)]
+        self.table = TableInfo()
+        self.me = -1
+        # Minor
+        self.pass_to = ''
+        self.receive_from = ''
+        self.picked = []
+        self.received = []
+        self.who_exposed = -1
+        self.candidate = []
+
+    def get_pos(self):
+        # (0, 1, 2, 3)
+        return 4 - self.table.board.count(None)
+
+    def get_board_score(self):
+        score = 0
+        for card in self.table.board:
+            if card == 'QS':
+                score += 13
+            elif card and card[1] == 'H':
+                score += 1
+        return score
+
+    def get_board_max(self):
+        max_rank = RANK_TO_INT[self.table.first_draw[0]]
+        for card in self.table.board:
+            if card:
+                r, s = card
+                r = RANK_TO_INT[r]
+                if s == self.table.first_draw[1]:
+                    if r > max_rank:
+                        max_rank = r
+        return max_rank
+
+    def get_possiable_min(self, n):
+        card = None
+
+        if self.table.first_draw:
+            max_rank = RANK_TO_INT[self.candidate[0][0]]
+            suit = self.candidate[0][1]
+            max_board = self.get_board_max()
+            for r, s in self.candidate:
+                r = RANK_TO_INT[r]
+                if s == self.table.first_draw[1] and r <= max_board and r >= max_rank:
+                    max_rank = r
+                    suit = s
+            system_log.show_message(u'後手：挑最大的安全牌出')
+            return '%s%s' % (INT_TO_RANK[max_rank], suit)
+        else:
+            world_cards = self.players[self.me].hand.df + self.table.opening_card.df
+            max_less = 0
+            max_target = None
+            for r, s in self.candidate:
+                r = RANK_TO_INT[r]
+                wc = list(world_cards.loc[world_cards[s] == 0].index)
+                lc = filter(lambda x: x < r, wc)
+
+                less_count = len(list(lc))
+                if less_count <= n and less_count >= max_less:
+                    max_less = less_count
+                    max_target = '%s%s' % (INT_TO_RANK[r], s)
+
+            system_log.show_message(u'先手：挑小的出')
+            return max_target
+
+        return card
+
+    def to_array(self):
+        t = np.array()
+        for p in self.players:
+            t = np.append(t, p.to_array())
+        return np.append(t, self.table.to_array())
+
