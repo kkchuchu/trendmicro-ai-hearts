@@ -22,7 +22,14 @@ def main():
     for i_episode in range(3000):
         observation = env.reset()
         while True:
+            n_round, _, _, exchanged, _, n_game, *_ = observation[1]
+            if n_round is 0 and n_game is 1:
+                action = env.action_space.sample()
+                observation_, reward, done, _ = env.step(action)
+                observation = observation_
+                continue
             action = bot.declare_action(observation)
+            from pdb import set_trace; set_trace()
             observation_, reward, done, _ = env.step(action)
             bot.ML.store_transition(observation, action, reward)
 

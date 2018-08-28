@@ -85,7 +85,16 @@ class PolicyGradient(BaseBot):
 
     def declare_action(self, game_info):
         prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: game_info.to_array().reshape(1, self.n_features)})
+        for i, v in enumerate(game_info.players[game_info.me].hand.df.loc[:, 'S'].tolist() + \
+					game_info.players[game_info.me].hand.df.loc[:, 'H'].tolist() + \
+					game_info.players[game_info.me].hand.df.loc[:, 'D'].tolist() +  \
+					game_info.players[game_info.me].hand.df.loc[:, 'C'].tolist()):
+            if v == 0:
+                prob_weights[0][i] = 0
+        prob_weights = prob_weights / prob_weights.sum()
+
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
+        from pdb import set_trace; set_trace()
         return action
 
     def store_transition(self, s, a, r):

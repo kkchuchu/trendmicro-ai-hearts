@@ -2,6 +2,7 @@ from system_log import system_log
 from card import Card
 import numpy as np
 from card import Cards, RANK_TO_INT, INT_TO_RANK
+from card import INT_TO_RANK
 
 
 class BaseBot:
@@ -194,13 +195,16 @@ class GymConnector(object):
         self.pos = position
         self.ML = a_bot
         self.bot = a_bot
+        self.last_first_draw = None
 
     def declare_action(self, observation):
         info = self._gym2game_info(observation)
-        return self.bot.declare_action(info)
+        t = self.bot.declare_action(info)
+        return np.array([(t%13, int(t/13))])
 
     def _gym2game_info(self, observation):
         info = GameInfo()
+        info.me = self.pos
 
         opponent = observation[0][0]
         my_score = observation[0][1]
@@ -211,32 +215,42 @@ class GymConnector(object):
         info.table.n_round, _, _, info.table.exchanged, _, info.table.n_game, \
         info.table.finish_expose, info.table.heart_exposed, board, (first_draw,), backup = table
 
-        for idx, card in enumerate(backup):
-            info.table.opening_card.add_card(self._convert_array_to_card(card))
-            if last_first_draw and card[1] != last_first_draw[1]:
-                info.players[idx].no_suit.add(GymConnector.INT_TO_SUIT[card[1]])
+        if not any([backup[i][0] == -1 for i in range(4)]):
+            for idx, card in enumerate(backup):
+                info.table.opening_card.add_card(self._convert_array_to_card(card))
+                if self.last_first_draw and card[1] != last_first_draw[1]:
+                    info.players[idx].no_suit.add(GymConnector.INT_TO_SUIT[card[1]])
 
         for idx, player in enumerate(info.players):
             if idx != 3:
                 player.round_score = opponent[idx * 2]
                 
                 for i, card in enumerate(opponent[idx * 2 + 1]):
-                    player.income.add_card(self._convert_array_to_card(card))
+                    if -1 not in card:
+                        player.income.add_card(self._convert_array_to_card(card))
 
             else:
                 player.round_score = my_score
             
 
-        last_first_draw = first_draw
+        self.last_first_draw = first_draw
 
         first_draw = self._convert_array_to_card(first_draw)
         info.table.first_draw = first_draw
 
         for idx, card in enumerate(board):
             card = self._convert_array_to_card(card)
-            info.table.append(card)
+            if card is None:
+                continue
+
+            info.table.board[idx] = card
             if first_draw and first_draw[1] != card[1]:
                 info.players[idx].no_suit.add(card[1])
+
+        for card in my_hand:
+            c = self._convert_array_to_card(card)
+            if c is not None:
+                info.players[info.me].hand.add_card(c)
 
         return info
 
@@ -244,7 +258,7 @@ class GymConnector(object):
         if all(array_card == (-1, -1)):
             return None
         r, s = array_card[0], array_card[1]
-        rank = GymConnector.INT_TO_RANK[r+2]
+        rank = INT_TO_RANK[r+2]
         suit = GymConnector.INT_TO_SUIT[s]
         return rank+suit
 
@@ -542,8 +556,8 @@ class PlayerInfo:
             suit[2] = 1
         elif 'C' in self.no_suit:
             suit[3] = 1
-        suit = np.array(suit)
-        return np.concatenate([self.round_score], suit, self.income.values.reshape(1, 52), self.draw.values.reshape(1, 52))
+        t = [self.round_score] + suit
+        return np.array(t + self.income.df.values.reshape(1, 52)[0].tolist() + self.draw.df.values.reshape(1, 52)[0].tolist())
 
 
 class TableInfo:
@@ -553,7 +567,7 @@ class TableInfo:
         self.exchanged = False
         self.n_round = 0
         self.n_game = 0
-        self.board = []
+        self.board = [None, None, None, None]
         self.first_draw = None
         self.opening_card = Cards()
         self.finish_expose = False
@@ -635,7 +649,7 @@ class GameInfo:
         return card
 
     def to_array(self):
-        t = np.array()
+        t = np.array([])
         for p in self.players:
             t = np.append(t, p.to_array())
         return np.append(t, self.table.to_array())

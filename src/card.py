@@ -49,4 +49,3 @@ class Cards:
     def get_suit_count(self):
         return self.df.sum()
 
-
