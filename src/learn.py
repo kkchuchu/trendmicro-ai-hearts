@@ -47,7 +47,7 @@ def main():
             observation_, reward, done, _ = env.step(action)
 
             train_observation = bot.get_train_observation(observation, env.action_space.get_all_valid_actions())
-            bot.ML.store_transition(train_observation, prob_weights, float(reward))
+            bot.ML.store_transition(train_observation, t, float(reward))
 
             if done:
                 ep_rs_sum = sum(bot.ML.ep_rs)
