@@ -9,6 +9,7 @@ class BaseBot:
     def declare_action(self, info):
         raise NotImplementedError()
 
+
 class TrendConnector(object):
 
     def __init__(self,player_name):
@@ -197,9 +198,13 @@ class GymConnector(object):
         self.last_first_draw = None
 
     def declare_action(self, observation, valid_actions):
+        train_data = self.get_train_observation(observation, valid_actions)
+        prob_weights = self.bot.declare_action(train_data)
+        return prob_weights
+
+    def get_train_observation(self, observation, valid_actions):
         info = self._gym2game_info(observation, valid_actions)
-        t = self.bot.declare_action(info)
-        return np.array([(t%13, int(t/13))])
+        return info.to_array().reshape(1, self.ML.n_features)
 
     def _gym2game_info(self, observation, valid_actions):
         info = GameInfo()

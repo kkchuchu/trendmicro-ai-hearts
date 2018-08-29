@@ -7,6 +7,7 @@ sys.path.append('../lib/HeartsEnv')
 from hearts.single import SingleEnv as HeartsEnv
 from bot import GymConnector
 from bots.pg.policy_gradient import PolicyGradient
+import numpy as np
 
 DISPLAY_REWARD_THRESHOLD = 400  # renders environment if total episode reward is greater then this threshold
 RENDER = False  # rendering wastes time
@@ -28,9 +29,25 @@ def main():
                 observation_, reward, done, _ = env.step(action)
                 observation = observation_
                 continue
-            action = bot.declare_action(observation, env.action_space.get_all_valid_actions())
+            prob_weights = bot.declare_action(observation, env.action_space.get_all_valid_actions())
+            game_info = bot._gym2game_info(observation, env.action_space.get_all_valid_actions())
+
+
+            t = []
+            for s in ['S', 'H', 'D', 'C']:
+                t = t + game_info.players[game_info.me].valid_action.df.loc[:, s].tolist()
+            for i, v in enumerate(t):
+                if v == 0:
+                    prob_weights[0][i] = 0
+            prob_weights = prob_weights / prob_weights.sum()
+
+
+            t = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
+            action = np.array([(t%13, int(t/13))])
             observation_, reward, done, _ = env.step(action)
-            bot.ML.store_transition(observation, action, reward)
+
+            train_observation = bot.get_train_observation(observation, env.action_space.get_all_valid_actions())
+            bot.ML.store_transition(train_observation, prob_weights, float(reward))
 
             if done:
                 ep_rs_sum = sum(bot.ML.ep_rs)

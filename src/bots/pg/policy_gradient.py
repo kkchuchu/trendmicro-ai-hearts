@@ -83,19 +83,9 @@ class PolicyGradient(BaseBot):
         with tf.name_scope('train'):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
-    def declare_action(self, game_info):
-        prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: game_info.to_array().reshape(1, self.n_features)})
-
-        t = []
-        for s in ['S', 'H', 'D', 'C']:
-            t = t + game_info.players[game_info.me].valid_action.df.loc[:, s].tolist()
-        for i, v in enumerate(t):
-            if v == 0:
-                prob_weights[0][i] = 0
-        prob_weights = prob_weights / prob_weights.sum()
-
-        action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
-        return action
+    def declare_action(self, train_data):
+        prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: train_data})
+        return prob_weights
 
     def store_transition(self, s, a, r):
         self.ep_obs.append(s)
@@ -107,17 +97,22 @@ class PolicyGradient(BaseBot):
         discounted_ep_rs_norm = self._discount_and_norm_rewards()
 
         # train on episode
+        from pdb import set_trace; set_trace()
         self.sess.run(self.train_op, feed_dict={
              self.tf_obs: np.vstack(self.ep_obs),  # shape=[None, n_obs]
              self.tf_acts: np.array(self.ep_as),  # shape=[None, ]
              self.tf_vt: discounted_ep_rs_norm,  # shape=[None, ]
         })
+        self._empty_episode_data()
 
-        self.ep_obs, self.ep_as, self.ep_rs = [], [], []    # empty episode data
         return discounted_ep_rs_norm
+
+    def _empty_episode_data(self):
+        self.ep_obs, self.ep_as, self.ep_rs = [], [], []    # empty episode data
 
     def _discount_and_norm_rewards(self):
         # discount episode rewards
+        from pdb import set_trace; set_trace()
         discounted_ep_rs = np.zeros_like(self.ep_rs)
         running_add = 0
         for t in reversed(range(0, len(self.ep_rs))):
