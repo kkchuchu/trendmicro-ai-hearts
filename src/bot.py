@@ -1,8 +1,7 @@
 from system_log import system_log
 from card import Card
 import numpy as np
-from card import Cards, RANK_TO_INT, INT_TO_RANK
-from card import INT_TO_RANK
+from card import Card, Cards, RANK_TO_INT, INT_TO_RANK
 
 
 class BaseBot:
@@ -197,12 +196,13 @@ class GymConnector(object):
         self.bot = a_bot
         self.last_first_draw = None
 
-    def declare_action(self, observation):
-        info = self._gym2game_info(observation)
+    def declare_action(self, observation, valid_actions):
+        from pdb import set_trace; set_trace()
+        info = self._gym2game_info(observation, valid_actions)
         t = self.bot.declare_action(info)
         return np.array([(t%13, int(t/13))])
 
-    def _gym2game_info(self, observation):
+    def _gym2game_info(self, observation, valid_actions):
         info = GameInfo()
         info.me = self.pos
 
@@ -252,6 +252,10 @@ class GymConnector(object):
             if c is not None:
                 info.players[info.me].hand.add_card(c)
 
+        for action in np.array(valid_actions):
+            c = self._convert_array_to_card(action)
+            if c is not None:
+                info.players[info.me].valid_action.add_card(c)
         return info
 
     def _convert_array_to_card(self, array_card):
@@ -544,6 +548,7 @@ class PlayerInfo:
         self.hand = Cards()
         self.name = ''
         self.round_score = 0
+        self.valid_action = Cards()
 
     def to_array(self):
         # S, H, D, C
