@@ -197,7 +197,6 @@ class GymConnector(object):
         self.last_first_draw = None
 
     def declare_action(self, observation, valid_actions):
-        from pdb import set_trace; set_trace()
         info = self._gym2game_info(observation, valid_actions)
         t = self.bot.declare_action(info)
         return np.array([(t%13, int(t/13))])
@@ -218,7 +217,7 @@ class GymConnector(object):
         if not any([backup[i][0] == -1 for i in range(4)]):
             for idx, card in enumerate(backup):
                 info.table.opening_card.add_card(self._convert_array_to_card(card))
-                if self.last_first_draw and card[1] != last_first_draw[1]:
+                if self.last_first_draw is not None and card[1] != self.last_first_draw[1]:
                     info.players[idx].no_suit.add(GymConnector.INT_TO_SUIT[card[1]])
 
         for idx, player in enumerate(info.players):
