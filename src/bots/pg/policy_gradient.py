@@ -97,7 +97,6 @@ class PolicyGradient(BaseBot):
         discounted_ep_rs_norm = self._discount_and_norm_rewards()
 
         # train on episode
-        from pdb import set_trace; set_trace()
         self.sess.run(self.train_op, feed_dict={
              self.tf_obs: np.vstack(self.ep_obs),  # shape=[None, n_obs]
              self.tf_acts: np.array(self.ep_as),  # shape=[None, ]
@@ -112,7 +111,6 @@ class PolicyGradient(BaseBot):
 
     def _discount_and_norm_rewards(self):
         # discount episode rewards
-        from pdb import set_trace; set_trace()
         discounted_ep_rs = np.zeros_like(self.ep_rs)
         running_add = 0
         for t in reversed(range(0, len(self.ep_rs))):

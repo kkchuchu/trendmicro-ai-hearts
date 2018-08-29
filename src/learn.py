@@ -61,12 +61,6 @@ def main():
                 print("episode:", i_episode, "  reward:", int(running_reward))
 
                 vt = bot.ML.learn()
-
-                if i_episode == 0:
-                    plt.plot(vt)    # plot the episode vt
-                    plt.xlabel('episode steps')
-                    plt.ylabel('normalized state-action value')
-                    plt.show()
                 last_n_game = n_game
                 break
 
