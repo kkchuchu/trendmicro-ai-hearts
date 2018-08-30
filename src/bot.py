@@ -198,8 +198,8 @@ class GymConnector(object):
         self.last_first_draw = None
 
     def declare_action(self, observation, valid_actions):
-        train_data = self.get_train_observation(observation, valid_actions)
-        prob_weights = self.bot.declare_action(train_data)
+        info = self._gym2game_info(observation, valid_actions)
+        prob_weights = self.bot.declare_action(info)
         return prob_weights
 
     def get_train_observation(self, observation, valid_actions):

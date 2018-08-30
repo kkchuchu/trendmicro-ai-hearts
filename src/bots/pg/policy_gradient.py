@@ -83,7 +83,8 @@ class PolicyGradient(BaseBot):
         with tf.name_scope('train'):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
-    def declare_action(self, train_data):
+    def declare_action(self, info):
+        train_data = info.to_array().reshape(1, self.ML.n_features)
         prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: train_data})
         return prob_weights
 

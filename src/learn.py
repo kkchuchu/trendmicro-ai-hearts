@@ -52,11 +52,7 @@ def main():
             if done:
                 ep_rs_sum = sum(bot.ML.ep_rs)
 
-                if 'running_reward' not in globals():
-                    print("Idk what this mean")
-                    running_reward = ep_rs_sum
-                else:
-                    running_reward = running_reward * 0.99 + ep_rs_sum * 0.01
+                running_reward = running_reward * 0.99 + ep_rs_sum * 0.01
                 if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
                 print("episode:", i_episode, "  reward:", int(running_reward))
 
