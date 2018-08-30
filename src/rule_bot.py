@@ -35,7 +35,7 @@ class ChunTingsBot(BaseBot):
                     tops = filter(lambda x: x >= 12, sorted(list(my_hand[my_hand[suit] > 0].index), reverse=True))
                     for s in tops:
                         if len(pass_card) < 3:
-                            pass_card.add('%sS' % INT_TO_RANK[s])
+                            pass_card.add('%s%s' % (INT_TO_RANK[s], suit))
                             system_log.show_message(u'如果還沒滿，換掉Ｑ以上的大牌 %r' % pass_card)
 
             if len(pass_card) != 3:
