@@ -551,7 +551,6 @@ class PlayerInfo:
         self.draw = Cards()
         self.hand = Cards()
         self.name = ''
-        self.round_score = 0
         self.valid_action = Cards()
 
     def to_array(self):

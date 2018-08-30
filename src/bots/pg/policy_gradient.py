@@ -13,10 +13,6 @@ import tensorflow as tf
 
 from bot import BaseBot
 
-# reproducible
-np.random.seed(1)
-tf.set_random_seed(1)
-
 
 class PolicyGradient(BaseBot):
 
