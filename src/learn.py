@@ -21,6 +21,7 @@ def main():
     last_n_game = 1
 
     for i_episode in range(3000):
+        running_reward = None
         observation = env.reset()
         while True:
             n_round, _, _, exchanged, _, n_game, *_ = observation[1]
@@ -51,7 +52,8 @@ def main():
 
             if done:
                 ep_rs_sum = sum(bot.ML.ep_rs)
-
+                if running_reward is None:
+                    running_reward = ep_rs_sum
                 running_reward = running_reward * 0.99 + ep_rs_sum * 0.01
                 if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
                 print("episode:", i_episode, "  reward:", int(running_reward))
