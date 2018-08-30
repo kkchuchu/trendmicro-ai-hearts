@@ -623,34 +623,59 @@ class GameInfo:
                     if r > max_rank:
                         max_rank = r
         return max_rank
+    
+    def get_no_suit(self, suit):
+        count = 0
+        for idx, player in enumerate(self.players):
+            if idx == self.me:
+                continue
+            if suit in player.no_suit:
+                count += 1
+        return count
 
     def get_possiable_min(self, n):
+        # 非最後一手
         card = None
 
         if self.table.first_draw:
-            max_rank = RANK_TO_INT[self.candidate[0][0]]
-            suit = self.candidate[0][1]
+            target = None
+
+            max_rank = 0
             max_board = self.get_board_max()
             for r, s in self.candidate:
                 r = RANK_TO_INT[r]
                 if s == self.table.first_draw[1] and r <= max_board and r >= max_rank:
                     max_rank = r
-                    suit = s
-            system_log.show_message(u'後手：挑最大的安全牌出')
-            return '%s%s' % (INT_TO_RANK[max_rank], suit)
+                    target = '%s%s' % (INT_TO_RANK[r], s)
+            if target:
+                system_log.show_message(u'後手：挑最大的安全牌出')
+            else:
+                for r, s in self.candidate:
+                    r = RANK_TO_INT[r]
+                    if r >= 12 and s == 'S':
+                        continue
+                    if s == self.table.first_draw[1] and r >= max_rank:
+                        max_rank = r
+                        target = '%s%s' % (INT_TO_RANK[r], s)
+                system_log.show_message(u'後手：沒有安全牌，挑最大的出')
+
+            return target
         else:
             world_cards = self.players[self.me].hand.df + self.table.opening_card.df
             max_less = 0
             max_target = None
-            for r, s in self.candidate:
+            for r, s in sorted(self.candidate, key=lambda x: x[1] == 'H'):
                 r = RANK_TO_INT[r]
                 wc = list(world_cards.loc[world_cards[s] == 0].index)
-                lc = filter(lambda x: x < r, wc)
+                lc = list(filter(lambda x: x < r, wc))
 
-                less_count = len(list(lc))
-                if less_count <= n and less_count >= max_less:
+                less_count = len(lc)
+                if less_count <= n - self.get_no_suit(s) and less_count >= max_less:
                     max_less = less_count
                     max_target = '%s%s' % (INT_TO_RANK[r], s)
+                    system_log.show_message('r %d%s n %r' % (r, s, n))
+                    system_log.show_message('wc %r' % wc)
+                    system_log.show_message('lc %r' % lc)
 
             system_log.show_message(u'先手：挑小的出')
             return max_target
