@@ -30,20 +30,7 @@ def main():
                 observation_, reward, done, _ = env.step(action)
                 observation = observation_
                 continue
-            prob_weights = bot.declare_action(observation, env.action_space.get_all_valid_actions())
-            game_info = bot._gym2game_info(observation, env.action_space.get_all_valid_actions())
-
-
-            t = []
-            for s in ['S', 'H', 'D', 'C']:
-                t = t + game_info.players[game_info.me].valid_action.df.loc[:, s].tolist()
-            for i, v in enumerate(t):
-                if v == 0:
-                    prob_weights[0][i] = 0
-            prob_weights = prob_weights / prob_weights.sum()
-
-
-            t = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
+            t = bot.declare_action(observation, env.action_space.get_all_valid_actions())
             action = np.array([(t%13, int(t/13))])
             observation_, reward, done, _ = env.step(action)
 

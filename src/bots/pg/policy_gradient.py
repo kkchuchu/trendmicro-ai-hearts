@@ -29,7 +29,7 @@ class PolicyGradient(BaseBot):
         self.lr = learning_rate
         self.gamma = reward_decay
 
-        self.ep_obs, self.ep_as, self.ep_rs = [], [], []
+        self._empty_episode_data()
 
         self._build_net()
 
@@ -46,7 +46,7 @@ class PolicyGradient(BaseBot):
     def _build_net(self):
         with tf.name_scope('inputs'):
             self.tf_obs = tf.placeholder(tf.float32, [None, self.n_features], name="observations")
-            self.tf_acts = tf.placeholder(tf.int32, [None,], name="actions_num")
+            self.tf_acts = tf.placeholder(tf.int32, [self.n_actions,], name="actions_num")
             self.tf_vt = tf.placeholder(tf.float32, [None, ], name="actions_value")
         # fc1
         layer = tf.layers.dense(
@@ -67,7 +67,12 @@ class PolicyGradient(BaseBot):
             name='fc2'
         )
 
-        self.all_act_prob = tf.nn.softmax(all_act, name='act_prob')  # use softmax to convert to probability
+        self.mask = tf.placeholder(tf.bool, shape=[self.n_actions,], name='mask')
+        # masked_act = tf.multiply(all_act, self.mask)
+        masked_act = tf.boolean_mask(all_act, self.mask)
+        # masked_act = all_act[self.mask]
+
+        self.all_act_prob = tf.nn.softmax(masked_act, name='act_prob')  # use softmax to convert to probability
 
         with tf.name_scope('loss'):
             # to maximize total reward (log_p * R) is to minimize -(log_p * R), and the tf only have minimize(loss)
@@ -80,9 +85,21 @@ class PolicyGradient(BaseBot):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
 
     def declare_action(self, info):
-        train_data = info.to_array().reshape(1, self.ML.n_features)
-        prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: train_data})
-        return prob_weights
+        train_data = info.to_array().reshape(1, self.n_features)
+        prob_weights = self.sess.run(self.all_act_prob, feed_dict={self.tf_obs: train_data, 
+                                                                   self.mask: self._get_act_mask(info)}
+                                     )
+        from pdb import set_trace;set_trace()
+        t = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
+        return t
+
+    def _get_act_mask(self, info):
+        t = np.array([False for _ in range(52)])
+        for suit_index, suit_char in enumerate(['S', 'H', 'D', 'C']):
+            for rank in info.players[info.me].valid_action.df.loc[:, suit_char].tolist():
+                if rank is 1:
+                    t[suit_index * 13 + rank] = True
+        return t
 
     def store_transition(self, s, a, r):
         self.ep_obs.append(s)

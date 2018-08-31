@@ -199,8 +199,8 @@ class GymConnector(object):
 
     def declare_action(self, observation, valid_actions):
         info = self._gym2game_info(observation, valid_actions)
-        prob_weights = self.bot.declare_action(info)
-        return prob_weights
+        action = self.bot.declare_action(info)
+        return action
 
     def get_train_observation(self, observation, valid_actions):
         info = self._gym2game_info(observation, valid_actions)
