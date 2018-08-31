@@ -67,9 +67,11 @@ class PolicyGradient(BaseBot):
             name='fc2'
         )
 
-        self.mask = tf.placeholder(tf.bool, shape=[self.n_actions,], name='mask')
+        self.mask = tf.placeholder(tf.bool, shape=[None, self.n_actions], name='mask')
         # masked_act = tf.multiply(all_act, self.mask)
-        masked_act = tf.boolean_mask(all_act, self.mask)
+        print(self.mask)
+        print(all_act)
+        masked_act = tf.boolean_mask(all_act[0], self.mask[0])
         # masked_act = all_act[self.mask]
 
         self.all_act_prob = tf.nn.softmax(masked_act, name='act_prob')  # use softmax to convert to probability
@@ -94,11 +96,12 @@ class PolicyGradient(BaseBot):
         return t
 
     def _get_act_mask(self, info):
-        t = np.array([False for _ in range(52)])
+        t = np.array([[False for _ in range(52)]])
         for suit_index, suit_char in enumerate(['S', 'H', 'D', 'C']):
             for rank in info.players[info.me].valid_action.df.loc[:, suit_char].tolist():
                 if rank is 1:
-                    t[suit_index * 13 + rank] = True
+                    t[0][suit_index * 13 + rank] = True
+        from pdb import set_trace; set_trace()
         return t
 
     def store_transition(self, s, a, r):
