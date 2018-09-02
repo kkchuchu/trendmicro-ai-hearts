@@ -6,6 +6,8 @@ from card import Card, Cards, RANK_TO_INT, INT_TO_RANK
 
 class BaseBot:
 
+    UPDATE_MODEL_FREQUENCY=1000
+
     def declare_action(self, info):
         raise NotImplementedError()
 
