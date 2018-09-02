@@ -24,7 +24,7 @@ def main():
         running_reward = None
         observation = env.reset()
         while True:
-            n_round, _, _, exchanged, _, n_game, *_ = observation[1]
+            n_round, _, _, exchanged, _, n_game, finish_expose, heart_exposed, board, (first_draw,), backup = observation[1]
             if n_round is 0 and n_game % 4 != 0:
                 action = env.action_space.sample()
                 observation_, reward, done, _ = env.step(action)
@@ -35,7 +35,13 @@ def main():
             observation_, reward, done, _ = env.step(action)
 
             train_observation = bot.get_train_observation(observation, env.action_space.get_all_valid_actions())
+            game_info = bot._gym2game_info(observation, env.action_space.get_all_valid_actions())
             bot.ML.store_transition(train_observation, t, float(reward))
+
+            if reward > 0:
+                print("Shooting Moon: update rewards")
+                for i, _ in enumerate(bot.ML.ep_rs):
+                    bot.ML.ep_rs[i] = reward
 
             if done:
                 ep_rs_sum = sum(bot.ML.ep_rs)

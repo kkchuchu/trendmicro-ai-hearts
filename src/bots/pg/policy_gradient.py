@@ -126,6 +126,7 @@ class PolicyGradient(BaseBot):
         if episode % BaseBot.UPDATE_MODEL_FREQUENCY is 0:
             ckpt = tf.train.get_checkpoint_state(PolicyGradient.MODEL_PATH)
             self.saver.save(self.sess, PolicyGradient.MODEL_PATH + '/model_' + str(episode) + '.ckpt')
+            print("Saving Model with episode %r " % episode)
 
         return discounted_ep_rs_norm
 

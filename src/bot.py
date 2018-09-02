@@ -6,7 +6,7 @@ from card import Card, Cards, RANK_TO_INT, INT_TO_RANK
 
 class BaseBot:
 
-    UPDATE_MODEL_FREQUENCY=1000
+    UPDATE_MODEL_FREQUENCY=100
 
     def declare_action(self, info):
         raise NotImplementedError()
@@ -568,6 +568,16 @@ class PlayerInfo:
             suit[3] = 1
         t = [self.round_score] + suit
         return np.array(t + self.income.df.values.reshape(1, 52)[0].tolist() + self.draw.df.values.reshape(1, 52)[0].tolist())
+
+    def get_score(self):
+        qs_score = 0
+        h_score = 0
+        if self.income.df['S'][12] == 1:
+            qs_score = 13
+        for c in self.income.df['H'].tolist():
+            if c == 1:
+                h_score +=1
+        return (h_socre, qs_score)
 
 
 class TableInfo:

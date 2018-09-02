@@ -4,3 +4,8 @@ bin/trend-hearts-1.0.0-alpha.4/trend-hearts-1.0.0-alpha.4-linux filter=lfs diff=
 bin/trend-hearts-1.0.0-alpha.4/trend-hearts-1.0.0-alpha.4-macos filter=lfs diff=lfs merge=lfs -text
 bin/trend-hearts-1.0.0-alpha.4/trend-hearts-1.0.0-alpha.4-win.exe filter=lfs diff=lfs merge=lfs -text
 bin/trend-hearts-1.0.0-alpha.4/sample_bot_v1.0.0/README.pdf filter=lfs diff=lfs merge=lfs -text
+bin/trend-hearts-1.0.0-alpha. filter=lfs diff=lfs merge=lfs -text
+bin/trend-hearts-1.0.0-alpha.7/ filter=lfs diff=lfs merge=lfs -text
+bin/trend-hearts-1.0.0-alpha.7/trend-hearts-1.0.0-alpha.7-linux filter=lfs diff=lfs merge=lfs -text
+bin/trend-hearts-1.0.0-alpha.7/trend-hearts-1.0.0-alpha.7-macos filter=lfs diff=lfs merge=lfs -text
+bin/trend-hearts-1.0.0-alpha.7/trend-hearts-1.0.0-alpha.7-win.exe filter=lfs diff=lfs merge=lfs -text
