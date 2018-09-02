@@ -14,7 +14,7 @@ RENDER = False  # rendering wastes time
 
 
 def main():
-    bot = GymConnector(3, PolicyGradient(52))
+    bot = GymConnector(3, PolicyGradient(52, output_graph=True))
     env = HeartsEnv()
     mode = 'human'
     done = False
@@ -45,7 +45,7 @@ def main():
                 if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
                 print("episode:", i_episode, "  reward:", int(running_reward))
 
-                vt = bot.ML.learn()
+                vt = bot.ML.learn(i_episode)
                 last_n_game = n_game
                 break
 

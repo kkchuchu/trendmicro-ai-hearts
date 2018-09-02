@@ -15,6 +15,7 @@ from bot import BaseBot
 
 
 class PolicyGradient(BaseBot):
+    MODEL_PATH = './cache/models/PG/'
 
     def __init__(
             self,
@@ -22,7 +23,8 @@ class PolicyGradient(BaseBot):
             n_features=438, # #player * (4 + 52 * 2) + n_game + n_round + 4 * score + start_pos
             learning_rate=0.01,
             reward_decay=0.95,
-            output_graph=False,
+            is_restore=False,
+            output_graph=True,
     ):
         self.n_actions = n_actions
         self.n_features = n_features
@@ -35,11 +37,13 @@ class PolicyGradient(BaseBot):
 
         self.sess = tf.Session()
 
+        self.saver = tf.train.Saver()
+
         if output_graph:
             # $ tensorboard --logdir=logs
             # http://0.0.0.0:6006/
             # tf.train.SummaryWriter soon be deprecated, use following
-            tf.summary.FileWriter("logs/", self.sess.graph)
+            self.writer = tf.summary.FileWriter("logs/", self.sess.graph)
 
         self.sess.run(tf.global_variables_initializer())
 
@@ -82,7 +86,9 @@ class PolicyGradient(BaseBot):
             neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=all_act, labels=self.tf_acts)   # this is negative log of chosen action
             # or in this way:
             # neg_log_prob = tf.reduce_sum(-tf.log(self.all_act_prob)*tf.one_hot(self.tf_acts, self.n_actions), axis=1)
+            tf.summary.scalar('vt', self.tf_vt)
             loss = tf.reduce_mean(neg_log_prob * self.tf_vt)  # reward guided loss
+            tf.summary.scalar('loss', loss)
 
         with tf.name_scope('train'):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
@@ -106,17 +112,20 @@ class PolicyGradient(BaseBot):
         self.ep_as.append(a)
         self.ep_rs.append(r)
 
-    def learn(self):
+    def learn(self, episode):
         # discount and normalize episode reward
         discounted_ep_rs_norm = self._discount_and_norm_rewards()
 
         # train on episode
-        self.sess.run(self.train_op, feed_dict={
+        result = self.sess.run(self.train_op, feed_dict={
              self.tf_obs: np.vstack(self.ep_obs),  # shape=[None, n_obs]
              self.tf_acts: np.array(self.ep_as),  # shape=[None, ]
              self.tf_vt: discounted_ep_rs_norm,  # shape=[None, ]
         })
         self._empty_episode_data()
+        if episode % BaseBot.UPDATE_MODEL_FREQUENCY is 0:
+            ckpt = tf.train.get_checkpoint_state(PolicyGradient.MODEL_PATH)
+            self.saver.save(self.sess, PolicyGradient.MODEL_PATH + '/model_' + str(episode) + '.ckpt')
 
         return discounted_ep_rs_norm
 
