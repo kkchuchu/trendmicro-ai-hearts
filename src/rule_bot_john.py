@@ -6,7 +6,6 @@ import numpy as np
 from bot import *
 from system_log import system_log
 
-
 class JohnsBot(BaseBot):
     def declare_action(self, info):
         my_hand = info.players[info.me].hand.df
