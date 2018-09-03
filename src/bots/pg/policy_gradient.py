@@ -14,18 +14,23 @@ import tensorflow as tf
 from bot import BaseBot
 
 
-class PolicyGradient(BaseBot):
+class Foo(BaseBot):
     MODEL_PATH = './cache/models/PG/'
 
     def __init__(
             self,
-            n_actions,
+            n_actions=52,
             n_features=438, # #player * (4 + 52 * 2) + n_game + n_round + 4 * score + start_pos
             learning_rate=0.01,
             reward_decay=0.95,
             is_restore=False,
             output_graph=True,
+            output_summary=True,
     ):
+        self.output_summary = output_summary
+        if self.output_summary:
+            self.summary = tf.Summary()
+
         self.n_actions = n_actions
         self.n_features = n_features
         self.lr = learning_rate
@@ -40,8 +45,8 @@ class PolicyGradient(BaseBot):
         self.saver = tf.train.Saver()
 
         if is_restore:
-            print("restore from %r" % PolicyGradient.MODEL_PATH)
-            ckpt = tf.train.get_checkpoint_state(PolicyGradient.MODEL_PATH)
+            print("restore from %r" % Foo.MODEL_PATH)
+            ckpt = tf.train.get_checkpoint_state(Foo.MODEL_PATH)
             self.saver.restore(self.sess, ckpt.model_checkpoint_path)
 
         if output_graph:
@@ -49,6 +54,7 @@ class PolicyGradient(BaseBot):
             # http://0.0.0.0:6006/
             # tf.train.SummaryWriter soon be deprecated, use following
             self.writer = tf.summary.FileWriter("logs/", self.sess.graph)
+
 
         self.sess.run(tf.global_variables_initializer())
 
@@ -76,14 +82,6 @@ class PolicyGradient(BaseBot):
             name='fc2'
         )
 
-        # self.mask = tf.placeholder(tf.float32, shape=[None, self.n_actions], name='mask')
-        # masked_act = all_act[0] * self.mask[0]
-        # masked_act = tf.multiply(all_act, self.mask)
-        # print(self.mask)
-        # print(all_act)
-        # masked_act = tf.boolean_mask(all_act[0], self.mask[0])
-        # masked_act = all_act[self.mask]
-
         self.all_act_prob = tf.nn.softmax(all_act, name='act_prob')  # use softmax to convert to probability
 
         with tf.name_scope('loss'):
@@ -91,9 +89,11 @@ class PolicyGradient(BaseBot):
             neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=all_act, labels=self.tf_acts)   # this is negative log of chosen action
             # or in this way:
             # neg_log_prob = tf.reduce_sum(-tf.log(self.all_act_prob)*tf.one_hot(self.tf_acts, self.n_actions), axis=1)
-            tf.summary.scalar('vt', self.tf_vt)
             loss = tf.reduce_mean(neg_log_prob * self.tf_vt)  # reward guided loss
-            tf.summary.scalar('loss', loss)
+            if self.output_summary:
+                # self.summary.value.add('vt', simple_value=np.mean(self.tf_vt))
+                # self.summary.value.add('loss', simple_value=loss)
+                pass
 
         with tf.name_scope('train'):
             self.train_op = tf.train.AdamOptimizer(self.lr).minimize(loss)
@@ -110,8 +110,6 @@ class PolicyGradient(BaseBot):
                 prob_weights[0][i] = 0
         prob_weights = prob_weights / prob_weights.sum()
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
-        if action == 0:
-            from pdb import set_trace;set_trace()
         return action
 
     def store_transition(self, s, a, r):
@@ -129,11 +127,18 @@ class PolicyGradient(BaseBot):
              self.tf_acts: np.array(self.ep_as),  # shape=[None, ]
              self.tf_vt: discounted_ep_rs_norm,  # shape=[None, ]
         })
+        print(np.mean(self.ep_as))
+        # self.summary.value.add('tf_acts/action', np.mean(self.ep_as))
         self._empty_episode_data()
-        if episode % BaseBot.UPDATE_MODEL_FREQUENCY is 0:
-            ckpt = tf.train.get_checkpoint_state(PolicyGradient.MODEL_PATH)
-            self.saver.save(self.sess, PolicyGradient.MODEL_PATH + '/model_' + str(episode) + '.ckpt')
+        if episode % BaseBot.STORE_MODEL_FREQUENCY is 0:
+            ckpt = tf.train.get_checkpoint_state(Foo.MODEL_PATH)
+            self.saver.save(self.sess, Foo.MODEL_PATH + '/model_' + str(episode) + '.ckpt')
             print("Saving Model with episode %r " % episode)
+
+        if episode % BaseBot.UPDATE_FREQUENCY == 0:
+            self.writer.add_summary(self.summary, episode)
+            self.writer.flush()
+            print("summary flushed")
 
         return discounted_ep_rs_norm
 

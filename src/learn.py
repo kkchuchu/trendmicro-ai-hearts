@@ -6,7 +6,7 @@ import sys
 sys.path.append('../lib/HeartsEnv')
 from hearts.single import SingleEnv as HeartsEnv
 from bot import GymConnector
-from bots.pg.policy_gradient import PolicyGradient
+from bots.pg.policy_gradient import Foo
 import numpy as np
 
 DISPLAY_REWARD_THRESHOLD = 400  # renders environment if total episode reward is greater then this threshold
@@ -14,7 +14,7 @@ RENDER = False  # rendering wastes time
 
 
 def main():
-    bot = GymConnector(3, PolicyGradient(52, output_graph=True, is_restore=True))
+    bot = GymConnector(3, Foo(52, output_graph=True, is_restore=True))
     env = HeartsEnv()
     mode = 'human'
     done = False
