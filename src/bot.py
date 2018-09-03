@@ -699,4 +699,3 @@ class GameInfo:
         for p in self.players:
             t = np.append(t, p.to_array())
         return np.append(t, self.table.to_array())
-
