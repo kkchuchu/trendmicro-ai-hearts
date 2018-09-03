@@ -26,7 +26,22 @@ pip install -r requirement.txt
 The example is at *rule_bot.py*, and you can simply implement the function `declare_action` to fulfill the Hearts SDK. The `declare_action` uses the `GameInfo` to determine what action should be taken, in addition, the `declare_action` will also apply to the **gym** environment.
 
 # Build Docker Image
-> docker build -t trend-hearts .
+```sh
+docker build -t trend-hearts .
+```
 
 # Run Docker Container
-> docker run trend-hearts [player_name] [player_number] [token] [connect_url]
+```sh
+docker run trend-hearts [player_name] [player_number] [token] [connect_url]
+```
+
+# Push Docker Image
+```sh
+docker tag trend-hearts ai.registry.trendmicro.com/${project_name}/trend-hearts:rank
+docker tag trend-hearts ai.registry.trendmicro.com/${project_name}/trend-hearts:practice
+
+docker login ai.registry.trendmicro.com
+
+docker push ai.registry.trendmicro.com/${project_name}/trend-hearts:rank
+docker push ai.registry.trendmicro.com/${project_name}/trend-hearts:practice
+```
