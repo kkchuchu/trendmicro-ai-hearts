@@ -39,6 +39,10 @@ class PolicyGradient(BaseBot):
 
         self.saver = tf.train.Saver()
 
+        if is_restore:
+            ckpt = tf.train.get_checkpoint_state(PolicyGradient.MODEL_PATH)
+            saver.restore(self.sess, ckpt.model_checkpoint_path)
+
         if output_graph:
             # $ tensorboard --logdir=logs
             # http://0.0.0.0:6006/

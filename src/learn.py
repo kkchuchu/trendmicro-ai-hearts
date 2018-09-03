@@ -14,7 +14,7 @@ RENDER = False  # rendering wastes time
 
 
 def main():
-    bot = GymConnector(3, PolicyGradient(52, output_graph=True))
+    bot = GymConnector(3, PolicyGradient(52, output_graph=True, is_restore=True))
     env = HeartsEnv()
     mode = 'human'
     done = False
