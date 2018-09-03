@@ -5,6 +5,8 @@ import sys
 
 from bot import LowPlayBot
 from rule_bot import RuleBot, ChunTingsBot
+from rule_bot_john import JohnsBot
+from bots.pg.policy_gradient import Foo
 from system_log import system_log
 
 class PokerSocket(object):
