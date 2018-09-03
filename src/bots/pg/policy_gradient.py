@@ -40,8 +40,9 @@ class PolicyGradient(BaseBot):
         self.saver = tf.train.Saver()
 
         if is_restore:
+            print("restore from %r" % PolicyGradient.MODEL_PATH)
             ckpt = tf.train.get_checkpoint_state(PolicyGradient.MODEL_PATH)
-            saver.restore(self.sess, ckpt.model_checkpoint_path)
+            self.saver.restore(self.sess, ckpt.model_checkpoint_path)
 
         if output_graph:
             # $ tensorboard --logdir=logs
@@ -109,6 +110,8 @@ class PolicyGradient(BaseBot):
                 prob_weights[0][i] = 0
         prob_weights = prob_weights / prob_weights.sum()
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
+        if action == 0:
+            from pdb import set_trace;set_trace()
         return action
 
     def store_transition(self, s, a, r):

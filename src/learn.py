@@ -18,7 +18,6 @@ def main():
     env = HeartsEnv()
     mode = 'human'
     done = False
-    last_n_game = 1
 
     for i_episode in range(3000):
         running_reward = None
@@ -36,23 +35,22 @@ def main():
 
             train_observation = bot.get_train_observation(observation, env.action_space.get_all_valid_actions())
             game_info = bot._gym2game_info(observation, env.action_space.get_all_valid_actions())
-            bot.ML.store_transition(train_observation, t, float(reward))
-
             if reward > 0:
                 print("Shooting Moon: update rewards")
                 for i, _ in enumerate(bot.ML.ep_rs):
                     bot.ML.ep_rs[i] = reward
+            bot.ML.store_transition(train_observation, t, float(reward))
 
-            if done:
+
+            if n_round % 13 is 0:
+                vt = bot.ML.learn(i_episode)
                 ep_rs_sum = sum(bot.ML.ep_rs)
                 if running_reward is None:
                     running_reward = ep_rs_sum
                 running_reward = running_reward * 0.99 + ep_rs_sum * 0.01
-                if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
-                print("episode:", i_episode, "  reward:", int(running_reward))
+                print("episode:", i_episode, "  reward:", int(running_reward), "vt:", vt)
 
-                vt = bot.ML.learn(i_episode)
-                last_n_game = n_game
+            if done:
                 break
 
             observation = observation_
