@@ -192,90 +192,6 @@ class TrendConnector(object):
             return None
 
 
-class GymConnector(object):
-
-    INT_TO_SUIT = INT_TO_SUIT
-
-    def __init__(self, position, a_bot: BaseBot):
-        self.pos = position
-        self.ML = a_bot
-        self.bot = a_bot
-        self.last_first_draw = None
-
-    def declare_action(self, observation, valid_actions):
-        info = self._gym2game_info(observation, valid_actions)
-        action = self.bot.declare_action(info)
-        return action
-
-    def get_train_observation(self, observation, valid_actions):
-        info = self._gym2game_info(observation, valid_actions)
-        return info.to_array().reshape(1, self.ML.n_features)
-
-    def _gym2game_info(self, observation, valid_actions):
-        info = GameInfo()
-        info.me = self.pos
-
-        opponent = observation[0][0]
-        my_score = observation[0][1]
-        my_hand = observation[0][2]
-        my_income = observation[0][3]
-
-        table = observation[1]
-        info.table.n_round, _, _, info.table.exchanged, _, info.table.n_game, \
-        info.table.finish_expose, info.table.heart_exposed, board, (first_draw,), backup = table
-
-        if not any([backup[i][0] == -1 for i in range(4)]):
-            for idx, card in enumerate(backup):
-                info.table.opening_card.add_card(self._convert_array_to_card(card))
-                if self.last_first_draw is not None and card[1] != self.last_first_draw[1]:
-                    info.players[idx].no_suit.add(GymConnector.INT_TO_SUIT[card[1]])
-
-        for idx, player in enumerate(info.players):
-            if idx != 3:
-                player.round_score = opponent[idx * 2]
-                
-                for i, card in enumerate(opponent[idx * 2 + 1]):
-                    if -1 not in card:
-                        player.income.add_card(self._convert_array_to_card(card))
-
-            else:
-                player.round_score = my_score
-            
-
-        self.last_first_draw = first_draw
-
-        first_draw = self._convert_array_to_card(first_draw)
-        info.table.first_draw = first_draw
-
-        for idx, card in enumerate(board):
-            card = self._convert_array_to_card(card)
-            if card is None:
-                continue
-
-            info.table.board[idx] = card
-            if first_draw and first_draw[1] != card[1]:
-                info.players[idx].no_suit.add(card[1])
-
-        for card in my_hand:
-            c = self._convert_array_to_card(card)
-            if c is not None:
-                info.players[info.me].hand.add_card(c)
-
-        for action in np.array(valid_actions):
-            c = self._convert_array_to_card(action)
-            if c is not None:
-                info.players[info.me].valid_action.add_card(c)
-        return info
-
-    def _convert_array_to_card(self, array_card):
-        if all(array_card == (-1, -1)):
-            return None
-        r, s = array_card[0], array_card[1]
-        rank = INT_TO_RANK[r+2]
-        suit = GymConnector.INT_TO_SUIT[s]
-        return rank+suit
-
-
 class RuleBot(TrendConnector):
     def __init__(self, name: str, a_bot: BaseBot):
         self.bot = a_bot
@@ -320,7 +236,8 @@ class RuleBot(TrendConnector):
 
     def pass_cards(self, data):
         self.info.pass_to = data['receiver']
-        self.info.candidate = data['self']['candidateCards']
+        for c in data['self']['candidateCards']:
+            self.info.candidate.add_card(c)
         return self.bot.declare_action(self.info)
 
     def receive_opponent_cards(self, data):
@@ -336,7 +253,8 @@ class RuleBot(TrendConnector):
         self.info.received = selfdata['receivedCards']
 
     def expose_my_cards(self, data):
-        self.info.candidate = data['self']['candidateCards']
+        for c in data['self']['candidateCards']:
+            self.info.candidate.add_card(c)
         return self.bot.declare_action(self.info)
 
     def expose_cards_end(self, data):
@@ -355,7 +273,9 @@ class RuleBot(TrendConnector):
         self.info.table.n_round = data['roundNumber']
 
     def pick_card(self, data):
-        self.info.candidate = data['self']['candidateCards']
+        for c in data['self']['candidateCards']:
+            self.info.candidate.add_card(c)
+
         self.get_hand(data)
         pick_card = self.bot.declare_action(self.info)
         system_log.show_message('pick_card %r' % pick_card)
@@ -588,7 +508,6 @@ class PlayerInfo:
         self.draw = Cards()
         self.hand = Cards()
         self.name = ''
-        self.valid_action = Cards()
         self.round_score = 0
 
     def to_array(self):
@@ -654,7 +573,7 @@ class GameInfo:
         self.picked = []
         self.received = []
         self.who_exposed = -1
-        self.candidate = []
+        self.candidate = Cards()
 
     def get_pos(self):
         # (0, 1, 2, 3)
@@ -743,3 +662,87 @@ class GameInfo:
         for p in self.players:
             t = np.append(t, p.to_array())
         return np.append(t, self.table.to_array())
+
+
+class GymConnector(object):
+
+    INT_TO_SUIT = INT_TO_SUIT
+
+    def __init__(self, position, a_bot: BaseBot):
+        self.pos = position
+        self.ML = a_bot
+        self.bot = a_bot
+        self.last_first_draw = None
+
+    def declare_action(self, observation, valid_actions):
+        info = self._gym2game_info(observation, valid_actions)
+        action = self.bot.declare_action(info)
+        return action
+
+    def get_train_observation(self, observation, valid_actions):
+        info = self._gym2game_info(observation, valid_actions)
+        return info.to_array().reshape(1, self.ML.n_features)
+
+    def _gym2game_info(self, observation, valid_actions):
+        info = GameInfo()
+        info.me = self.pos
+
+        opponent = observation[0][0]
+        my_score = observation[0][1]
+        my_hand = observation[0][2]
+        my_income = observation[0][3]
+
+        table = observation[1]
+        info.table.n_round, _, _, info.table.exchanged, _, info.table.n_game, \
+        info.table.finish_expose, info.table.heart_exposed, board, (first_draw,), backup = table
+
+        if not any([backup[i][0] == -1 for i in range(4)]):
+            for idx, card in enumerate(backup):
+                info.table.opening_card.add_card(self._convert_array_to_card(card))
+                if self.last_first_draw is not None and card[1] != self.last_first_draw[1]:
+                    info.players[idx].no_suit.add(GymConnector.INT_TO_SUIT[card[1]])
+
+        for idx, player in enumerate(info.players):
+            if idx != 3:
+                player.round_score = opponent[idx * 2]
+                
+                for i, card in enumerate(opponent[idx * 2 + 1]):
+                    if -1 not in card:
+                        player.income.add_card(self._convert_array_to_card(card))
+
+            else:
+                player.round_score = my_score
+            
+
+        self.last_first_draw = first_draw
+
+        first_draw = self._convert_array_to_card(first_draw)
+        info.table.first_draw = first_draw
+
+        for idx, card in enumerate(board):
+            card = self._convert_array_to_card(card)
+            if card is None:
+                continue
+
+            info.table.board[idx] = card
+            if first_draw and first_draw[1] != card[1]:
+                info.players[idx].no_suit.add(card[1])
+
+        for card in my_hand:
+            c = self._convert_array_to_card(card)
+            if c is not None:
+                info.players[info.me].hand.add_card(c)
+
+        for action in np.array(valid_actions):
+            c = self._convert_array_to_card(action)
+            if c is not None:
+                info.players[info.me].valid_action.add_card(c)
+        return info
+
+    def _convert_array_to_card(self, array_card):
+        if all(array_card == (-1, -1)):
+            return None
+        r, s = array_card[0], array_card[1]
+        rank = INT_TO_RANK[r+2]
+        suit = GymConnector.INT_TO_SUIT[s]
+        return rank+suit
