@@ -555,6 +555,7 @@ class PlayerInfo:
         self.hand = Cards()
         self.name = ''
         self.valid_action = Cards()
+        self.round_score = 0
 
     def to_array(self):
         # S, H, D, C
@@ -570,15 +571,24 @@ class PlayerInfo:
         t = [self.round_score] + suit
         return np.array(t + self.income.df.values.reshape(1, 52)[0].tolist() + self.draw.df.values.reshape(1, 52)[0].tolist())
 
-    def get_score(self):
+    def get_current_deal_score(self, heart_exposed):
+        """
+        Compute score from deal start to now.
+        """
         qs_score = 0
         h_score = 0
+        mul = 1
+        if self.income.df['C'][10] == 1: #梅花10
+            mul = 2
+
         if self.income.df['S'][12] == 1:
             qs_score = 13
         for c in self.income.df['H'].tolist():
             if c == 1:
                 h_score +=1
-        return (h_socre, qs_score)
+        if heart_exposed:
+            h_score = h_score * 2
+        return (h_score + qs_score) * mul
 
 
 class TableInfo:

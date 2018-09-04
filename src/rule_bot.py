@@ -261,6 +261,10 @@ class RuleBot(TrendConnector):
         for card in self.info.table.board:
             self.info.players[player_id].income.add_card(card)
 
+        for player in self.info.players:
+            now_score = player.get_current_deal_score(info.table.heart_exposed)
+            player.round_score = now_score - player.round_score
+
     def deal_end(self, data):
         pass
 
