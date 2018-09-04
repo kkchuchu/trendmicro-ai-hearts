@@ -1,4 +1,4 @@
-#coding=UTF-8
+#codu3gng=UTF-8
 from websocket import create_connection, WebSocketConnectionClosedException
 import json
 import sys

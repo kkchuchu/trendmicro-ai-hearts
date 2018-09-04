@@ -3,6 +3,8 @@ from card import Card
 import numpy as np
 from card import Card, Cards, RANK_TO_INT, INT_TO_RANK
 
+INT_TO_SUIT = ['S', 'H', 'D', 'C']
+
 
 class BaseBot:
 
@@ -192,7 +194,7 @@ class TrendConnector(object):
 
 class GymConnector(object):
 
-    INT_TO_SUIT = ['S', 'H', 'D', 'C']
+    INT_TO_SUIT = INT_TO_SUIT
 
     def __init__(self, position, a_bot: BaseBot):
         self.pos = position
@@ -382,11 +384,43 @@ class RuleBot(TrendConnector):
         for card in self.info.table.board:
             self.info.players[player_id].income.add_card(card)
 
+        for player in self.info.players:
+            now_score = player.get_current_deal_score(self.info.table.heart_exposed)
+            player.round_score = now_score - player.round_score
+
     def deal_end(self, data):
         pass
 
     def game_over(self, data):
         pass
+
+
+class MLBot(RuleBot):
+
+    def __init__(self, name: str, a_bot: BaseBot):
+        super(MLBot, self).__init__(name, a_bot)
+
+    def pass_cards(self, data):
+        actions = super(MLBot, self).pass_cards(data)
+        return self._52_to_trend_card(actions)
+
+    def pick_card(self, data):
+        action = super(MLBot, self).pick_card(data)
+        return self._52_to_trend_card(action)
+
+    def expose_my_cards(self, data):
+        try:
+            card = super(MLBot, self).expose_my_cards(data)
+            action = self._52_to_trend_card(card)
+        except:
+            action = ['AH']
+
+        return action
+
+    def _52_to_trend_card(self, card: int):
+        suit = INT_TO_SUIT[int(card/13)]
+        rank = INT_TO_RANK[card%13 + 2]
+        return rank+suit
 
 
 class LowPlayBot(TrendConnector):

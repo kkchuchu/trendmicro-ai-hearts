@@ -108,6 +108,8 @@ class Foo(BaseBot):
         for i, v in enumerate(t):
             if v == 0:
                 prob_weights[0][i] = 0
+        print(t)
+        print(prob_weights)
         prob_weights = prob_weights / prob_weights.sum()
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
         return action
@@ -127,7 +129,6 @@ class Foo(BaseBot):
              self.tf_acts: np.array(self.ep_as),  # shape=[None, ]
              self.tf_vt: discounted_ep_rs_norm,  # shape=[None, ]
         })
-        print(np.mean(self.ep_as))
         # self.summary.value.add('tf_acts/action', np.mean(self.ep_as))
         self._empty_episode_data()
         if episode % BaseBot.STORE_MODEL_FREQUENCY is 0:
