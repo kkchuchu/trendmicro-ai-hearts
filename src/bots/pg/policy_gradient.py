@@ -104,7 +104,7 @@ class Foo(BaseBot):
                                      )
         t = []
         for s in ['S', 'H', 'D', 'C']:
-            t = t + info.players[info.me].valid_action.df.loc[:, s].tolist()
+            t = t + info.candidate.df.loc[:, s].tolist()
         for i, v in enumerate(t):
             if v == 0:
                 prob_weights[0][i] = 0
