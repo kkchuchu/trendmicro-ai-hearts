@@ -115,6 +115,9 @@ class Foo(BaseBot):
         return action
 
     def store_transition(self, s, a, r):
+        """
+        呼叫這個之後就可以learn
+        """
         self.ep_obs.append(s)
         self.ep_as.append(a)
         self.ep_rs.append(r)
