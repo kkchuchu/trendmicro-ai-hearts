@@ -49,22 +49,19 @@ class Luffy(BaseBot):
         s, a, r, s_
         """
         (state, action, reward, state_) = s
-        t = (state.to_array().reshape(1, self.n_features), action, reward, state_.to_array().reshape(1, self.n_features))
-        self.memory.append(t)
+        self.memory.append(s)
 
     def declare_action(self, info: GameInfo):
         state = info.to_array().reshape(1, self.n_features)
         prob_weights = self.actor.declare_action(state)
 
-        t = []
-        for s in INDEX_TO_SUIT:
-            t = t + info.candidate.df.loc[:, s].tolist()
-        for i, v in enumerate(t):
-            if v == 0:
-                prob_weights[0][i] = 0
-        prob_weights = prob_weights / prob_weights.sum()
+        for index_suit, s in enumerate(INDEX_TO_SUIT):
+            for i in range(2, 15):
+                if info.candidate.df.loc[i, s] == 0:
+                    prob_weights[0][index_suit * 13 + i -2] = 0
+        print(prob_weights)
+        from pdb import set_trace; set_trace()
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
-        print("choose action %r" % action)
         return action
 
     def learn(self, episode):

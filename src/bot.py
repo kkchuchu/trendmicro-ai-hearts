@@ -161,9 +161,7 @@ class MLBot(RuleBot):
         self.after_my_turn_game_info = None
 
     def _its_my_turn(self, info):
-        self.before_my_turn_game_info = None
-        self.my_turn_action = None
-        self.before_my_turn_game_info = info
+        self.before_my_turn_game_info = info.to_array().reshape(1, self.bot.n_features)
         action = self.bot.declare_action(info)
         self.my_turn_action = action
         return action
@@ -202,7 +200,7 @@ class MLBot(RuleBot):
         turnCard = data['turnCard']
 
         if turnPlayer == self.name: # it's me
-            self.after_my_turn_game_info = self.info
+            self.after_my_turn_game_info = self.info.to_array().reshape(1, self.bot.n_features)
 
         # Store train data
         """
@@ -220,6 +218,7 @@ class MLBot(RuleBot):
                reward = -1.0 * p_s 
 
         self.bot.store_transition((self.before_my_turn_game_info, self.my_turn_action, reward, self.after_my_turn_game_info))
+
 
 class PlayerInfo:
 
