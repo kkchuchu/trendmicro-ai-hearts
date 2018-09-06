@@ -50,7 +50,6 @@ class Luffy(BaseBot):
         """
         (state, action, reward, state_) = s
         t = (state.to_array().reshape(1, self.n_features), action, reward, state_.to_array().reshape(1, self.n_features))
-        print(t)
         self.memory.append(t)
 
     def declare_action(self, info: GameInfo):
@@ -63,10 +62,9 @@ class Luffy(BaseBot):
         for i, v in enumerate(t):
             if v == 0:
                 prob_weights[0][i] = 0
-        print(t)
-        print(prob_weights)
         prob_weights = prob_weights / prob_weights.sum()
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
+        print("choose action %r" % action)
         return action
 
     def learn(self, episode):

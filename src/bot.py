@@ -213,7 +213,13 @@ class MLBot(RuleBot):
 
     def round_end(self, data):
         super(MLBot, self).round_end(data)
-        self.bot.store_transition((self.before_my_turn_game_info, self.my_turn_action, 1, self.after_my_turn_game_info))
+        reward = self.info.players[self.info.me].round_score
+        for player in self.info.players:
+            p_s = player.get_current_deal_score(self.info.table.heart_exposed)
+            if p_s > 0:
+               reward = -1.0 * p_s 
+
+        self.bot.store_transition((self.before_my_turn_game_info, self.my_turn_action, reward, self.after_my_turn_game_info))
 
 class PlayerInfo:
 
