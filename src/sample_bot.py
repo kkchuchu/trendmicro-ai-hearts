@@ -3,9 +3,8 @@ from websocket import create_connection, WebSocketConnectionClosedException
 import json
 import sys
 
-from bot import LowPlayBot
 from rule_bot import RuleBot, ChunTingsBot
-from rule_bot_john import JohnsBot
+from bots.rule_bot_john import JohnsBot
 from bots.pg.policy_gradient import Foo
 from system_log import system_log
 
@@ -76,7 +75,6 @@ class PokerSocket(object):
            self.poker_bot.round_end(data)
        elif action=="deal_end":
            self.poker_bot.deal_end(data)
-           self.poker_bot.reset_card_his()
        elif action=="game_end":
            self.poker_bot.game_over(data)
            self.ws.send(json.dumps({

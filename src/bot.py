@@ -1,202 +1,31 @@
 from system_log import system_log
 from card import Card
 import numpy as np
-from card import Card, Cards, RANK_TO_INT, INT_TO_RANK
+from card import Card, Cards, RANK_TO_INT, INT_TO_RANK, SUIT_TO_INDEX, INDEX_TO_SUIT
 
-INT_TO_SUIT = ['S', 'H', 'D', 'C']
 
 
 class BaseBot:
 
     STORE_MODEL_FREQUENCY=100
     UPDATE_FREQUENCY = 10
+    N_FEATURES=438
+    N_ACTIONS=52
 
     def declare_action(self, info):
         raise NotImplementedError()
 
 
-class TrendConnector(object):
+class RuleBot:
 
-    def __init__(self,player_name):
-        self.round_cards_history=[]
-        self.pick_his={}
-        self.round_cards = {}
-        self.score_cards={}
-        self.player_name=player_name
-        self.players_current_picked_cards=[]
-        self.game_score_cards = {Card("QS"), Card("TC"), Card("2H"), Card("3H"), Card("4H"), Card("5H"), Card("6H"),
-                           Card("7H"), Card("8H"), Card("9H"), Card("TH"), Card("JH"), Card("QH"), Card("KH"),
-                           Card("AH")}
-    #@abstractmethod
-    def receive_cards(self,data):
-        err_msg = self.__build_err_msg("receive_cards")
-        raise NotImplementedError(err_msg)
-    def pass_cards(self,data):
-        err_msg = self.__build_err_msg("pass_cards")
-        raise NotImplementedError(err_msg)
-    def pick_card(self,data):
-        err_msg = self.__build_err_msg("pick_card")
-        raise NotImplementedError(err_msg)
-    def expose_my_cards(self,yourcards):
-        err_msg = self.__build_err_msg("expose_my_cards")
-        raise NotImplementedError(err_msg)
-    def expose_cards_end(self,data):
-        err_msg = self.__build_err_msg("expose_cards_announcement")
-        raise NotImplementedError(err_msg)
-    def new_round(self, data):
-        pass
-    def receive_opponent_cards(self,data):
-        err_msg = self.__build_err_msg("receive_opponent_cards")
-        raise NotImplementedError(err_msg)
-    def round_end(self,data):
-        err_msg = self.__build_err_msg("round_end")
-        raise NotImplementedError(err_msg)
-    def deal_end(self,data):
-        err_msg = self.__build_err_msg("deal_end")
-        raise NotImplementedError(err_msg)
-    def game_over(self,data):
-        err_msg = self.__build_err_msg("game_over")
-        raise NotImplementedError(err_msg)
-    def pick_history(self,data,is_timeout,pick_his):
-        err_msg = self.__build_err_msg("pick_history")
-        raise NotImplementedError(err_msg)
-
-    def reset_card_his(self):
-        self.round_cards_history = []
-        self.pick_his={}
-
-    def get_card_history(self):
-        return self.round_cards_history
-
-    def turn_end(self,data):
-        turnCard=data['turnCard']
-        turnPlayer=data['turnPlayer']
-        players=data['players']
-        is_timeout=data['serverRandom']
-        for player in players:
-            player_name=player['playerName']
-            if player_name==self.player_name:
-                current_cards=player['cards']
-                for card in current_cards:
-                    self.players_current_picked_cards.append(Card(card))
-        self.round_cards[turnPlayer]=Card(turnCard)
-        opp_pick={}
-        opp_pick[turnPlayer]=Card(turnCard)
-        if (self.pick_his.get(turnPlayer))!=None:
-            pick_card_list=self.pick_his.get(turnPlayer)
-            pick_card_list.append(Card(turnCard))
-            self.pick_his[turnPlayer]=pick_card_list
-        else:
-            pick_card_list = []
-            pick_card_list.append(Card(turnCard))
-            self.pick_his[turnPlayer] = pick_card_list
-        self.round_cards_history.append(Card(turnCard))
-        self.pick_history(data,is_timeout,opp_pick)
-
-    def get_cards(self,data):
-        try:
-            receive_cards=[]
-            players=data['players']
-            for player in players:
-                if player['playerName']==self.player_name:
-                    cards=player['cards']
-                    for card in cards:
-                        receive_cards.append(Card(card))
-                    break
-            return receive_cards
-        except Exception as e:
-            system_log.show_message(e.message)
-            raise e
-            return None
-
-    def get_round_scores(self,is_expose_card=False,data=None):
-        if data!=None:
-            players=data['roundPlayers']
-            picked_user = players[0]
-            round_card = self.round_cards.get(picked_user)
-            score_cards=[]
-            for i in range(len(players)):
-                card=self.round_cards.get(players[i])
-                if card in self.game_score_cards:
-                    score_cards.append(card)
-                if round_card.suit_index==card.suit_index:
-                    if round_card.value<card.value:
-                        picked_user = players[i]
-                        round_card=card
-            if (self.score_cards.get(picked_user)!=None):
-                current_score_cards=self.score_cards.get(picked_user)
-                score_cards+=current_score_cards
-            self.score_cards[picked_user]=score_cards
-            self.round_cards = {}
-
-        receive_cards={}
-        for key in self.pick_his.keys():
-            picked_score_cards=self.score_cards.get(key)
-            round_score = 0
-            round_heart_score=0
-            is_double = False
-            if picked_score_cards!=None:
-                for card in picked_score_cards:
-                    if card in self.game_score_cards:
-                        if card == Card("QS"):
-                            round_score += -13
-                        elif card == Card("TC"):
-                            is_double = True
-                        else:
-                            round_heart_score += -1
-                if is_expose_card:
-                    round_heart_score*=2
-                round_score+=round_heart_score
-                if is_double:
-                    round_score*=2
-            receive_cards[key] = round_score
-        return receive_cards
-
-    def get_deal_scores(self, data):
-        try:
-            self.score_cards = {}
-            final_scores  = {}
-            initial_cards = {}
-            receive_cards = {}
-            picked_cards  = {}
-            players = data['players']
-            for player in players:
-                player_name     = player['playerName']
-                palyer_score    = player['dealScore']
-                player_initial  = player['initialCards']
-                player_receive  = player['receivedCards']
-                player_picked   = player['pickedCards']
-
-                final_scores[player_name] = palyer_score
-                initial_cards[player_name] = player_initial
-                receive_cards[player_name]=player_receive
-                picked_cards[player_name]=player_picked
-            return final_scores, initial_cards,receive_cards,picked_cards
-        except Exception as e:
-            system_log.show_message(e.message)
-            raise e
-            return None
-
-    def get_game_scores(self,data):
-        try:
-            receive_cards={}
-            players=data['players']
-            for player in players:
-                player_name=player['playerName']
-                palyer_score=player['gameScore']
-                receive_cards[player_name]=palyer_score
-            return receive_cards
-        except Exception as e:
-            system_log.show_message(e.message)
-            raise e
-            return None
-
-
-class RuleBot(TrendConnector):
     def __init__(self, name: str, a_bot: BaseBot):
+        self.name = name
         self.bot = a_bot
-        super(RuleBot, self).__init__(name)
         self.reset()
+        self.episode = 0
+
+    def _its_my_turn(self, info):
+        return self.bot.declare_action(info)
 
     def reset(self):
         self.info = GameInfo()
@@ -238,7 +67,7 @@ class RuleBot(TrendConnector):
         self.info.pass_to = data['receiver']
         for c in data['self']['candidateCards']:
             self.info.candidate.add_card(c)
-        return self.bot.declare_action(self.info)
+        return self._its_my_turn(self.info)
 
     def receive_opponent_cards(self, data):
         selfdata = data['self']
@@ -255,7 +84,7 @@ class RuleBot(TrendConnector):
     def expose_my_cards(self, data):
         for c in data['self']['candidateCards']:
             self.info.candidate.add_card(c)
-        return self.bot.declare_action(self.info)
+        return self._its_my_turn(self.info)
 
     def expose_cards_end(self, data):
         players = data['players']
@@ -277,11 +106,14 @@ class RuleBot(TrendConnector):
             self.info.candidate.add_card(c)
 
         self.get_hand(data)
-        pick_card = self.bot.declare_action(self.info)
+        pick_card = self._its_my_turn(self.info)
         system_log.show_message('pick_card %r' % pick_card)
         return pick_card
 
     def turn_end(self, data):
+        """
+        有人做完一個action
+        """
         turnPlayer = data['turnPlayer']
         turnCard = data['turnCard']
 
@@ -298,8 +130,11 @@ class RuleBot(TrendConnector):
             self.info.players[player_id].no_suit.add(turnCard[1])
 
     def round_end(self, data):
+        """
+        每人出完一次牌
+        """
         roundPlayer = data['roundPlayer']
-        player_id = self.get_player_id(roundPlayer)
+        player_id = self.get_player_id(roundPlayer) # who get earn this round
 
         for card in self.info.table.board:
             self.info.players[player_id].income.add_card(card)
@@ -309,6 +144,9 @@ class RuleBot(TrendConnector):
             player.round_score = now_score - player.round_score
 
     def deal_end(self, data):
+        """
+        13次出完牌
+        """
         pass
 
     def game_over(self, data):
@@ -317,8 +155,18 @@ class RuleBot(TrendConnector):
 
 class MLBot(RuleBot):
 
-    def __init__(self, name: str, a_bot: BaseBot):
+    def __init__(self, name, a_bot):
         super(MLBot, self).__init__(name, a_bot)
+        self.before_my_turn_game_info = None
+        self.after_my_turn_game_info = None
+
+    def _its_my_turn(self, info):
+        self.before_my_turn_game_info = None
+        self.my_turn_action = None
+        self.before_my_turn_game_info = info
+        action = self.bot.declare_action(info)
+        self.my_turn_action = action
+        return action
 
     def pass_cards(self, data):
         actions = super(MLBot, self).pass_cards(data)
@@ -338,10 +186,34 @@ class MLBot(RuleBot):
         return action
 
     def _52_to_trend_card(self, card: int):
-        suit = INT_TO_SUIT[int(card/13)]
+        suit = INDEX_TO_SUIT[int(card/13)]
         rank = INT_TO_RANK[card%13 + 2]
         return rank+suit
 
+    def deal_end(self, data):
+        super(MLBot, self).deal_end(data)
+        # update reward if shooting moon
+        self.bot.learn(self.episode)
+        self.episode = self.episode + 1
+
+    def turn_end(self, data):
+        super(MLBot, self).turn_end(data)
+        turnPlayer = data['turnPlayer']
+        turnCard = data['turnCard']
+
+        if turnPlayer == self.name: # it's me
+            self.after_my_turn_game_info = self.info
+
+        # Store train data
+        """
+        card = data['players'][self.info.me]['roundCard']
+        action = RANK_TO_INT[card[0]] - 2 + SUIT_TO_INDEX[card[1]] * 13
+        train_data = self.info.to_array().reshape(1, self.bot.N_FEATURES)
+        """
+
+    def round_end(self, data):
+        super(MLBot, self).round_end(data)
+        self.bot.store_transition((self.before_my_turn_game_info, self.my_turn_action, 1, self.after_my_turn_game_info))
 
 class PlayerInfo:
 
@@ -351,7 +223,7 @@ class PlayerInfo:
         self.draw = Cards()
         self.hand = Cards()
         self.name = ''
-        self.round_score = 0
+        self.round_score = 0.0
 
     def to_array(self):
         # S, H, D, C
@@ -509,7 +381,7 @@ class GameInfo:
 
 class GymConnector(object):
 
-    INT_TO_SUIT = INT_TO_SUIT
+    INDEX_TO_SUIT = INDEX_TO_SUIT
 
     def __init__(self, position, a_bot: BaseBot):
         self.pos = position
@@ -543,7 +415,7 @@ class GymConnector(object):
             for idx, card in enumerate(backup):
                 info.table.opening_card.add_card(self._convert_array_to_card(card))
                 if self.last_first_draw is not None and card[1] != self.last_first_draw[1]:
-                    info.players[idx].no_suit.add(GymConnector.INT_TO_SUIT[card[1]])
+                    info.players[idx].no_suit.add(GymConnector.INDEX_TO_SUIT[card[1]])
 
         for idx, player in enumerate(info.players):
             if idx != 3:
@@ -587,5 +459,5 @@ class GymConnector(object):
             return None
         r, s = array_card[0], array_card[1]
         rank = INT_TO_RANK[r+2]
-        suit = GymConnector.INT_TO_SUIT[s]
+        suit = GymConnector.INDEX_TO_SUIT[s]
         return rank+suit

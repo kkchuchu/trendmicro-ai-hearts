@@ -2,6 +2,8 @@ import pandas as pd
 
 RANK_TO_INT = {"T": 10, "J": 11, "Q": 12, "K": 13, "A": 14,"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9}
 INT_TO_RANK = dict([(v, k) for k, v in RANK_TO_INT.items()])
+SUIT_TO_INDEX = {'S': 0, 'H': 1, 'D': 2, 'C': 3}
+INDEX_TO_SUIT = ['S', 'H', 'D', 'C']
 
 class Card:
 

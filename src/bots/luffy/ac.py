@@ -15,185 +15,165 @@ import tensorflow as tf
 import random
 from collections import deque
 
+from bot import BaseBot, GameInfo
+from card import INDEX_TO_SUIT
 # determines how to assign values to each state, i.e. takes the state
 # and action (two-input model) and determines the corresponding value
-class ActorCritic:
-    def __init__(self, env, sess):
-        self.env  = env
+class Luffy(BaseBot):
+
+    MODEL_PATH = './cache/models/AC/'
+    LEARNING_RATE=0.001
+    GAMMA = 0.9
+
+    def __init__(self, is_restore=True, output_graph=True, output_summary=True):
+        self.is_restore = is_restore
+        self.output_graph = output_graph
+        self.output_summary = output_summary
+        self.episode = 0
+        self.memory = deque()
+        self.sess = tf.Session()
+        self.n_features = BaseBot.N_FEATURES
+        self.n_actions = BaseBot.N_ACTIONS
+        self.actor = Actor(self.sess, self.n_features, self.n_actions)
+        self.critic = Critic(self.sess, self.n_features)
+        self.saver = tf.train.Saver()
+        self.sess.run(tf.global_variables_initializer())
+
+        if is_restore:
+            print("restore from %r" % Luffy.MODEL_PATH)
+            ckpt = tf.train.get_checkpoint_state(Luffy.MODEL_PATH)
+            self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+
+    def store_transition(self, s: tuple):
+        """
+        s, a, r, s_
+        """
+        (state, action, reward, state_) = s
+        t = (state.to_array().reshape(1, self.n_features), action, reward, state_.to_array().reshape(1, self.n_features))
+        print(t)
+        self.memory.append(t)
+
+    def declare_action(self, info: GameInfo):
+        state = info.to_array().reshape(1, self.n_features)
+        prob_weights = self.actor.declare_action(state)
+
+        t = []
+        for s in INDEX_TO_SUIT:
+            t = t + info.candidate.df.loc[:, s].tolist()
+        for i, v in enumerate(t):
+            if v == 0:
+                prob_weights[0][i] = 0
+        print(t)
+        print(prob_weights)
+        prob_weights = prob_weights / prob_weights.sum()
+        action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
+        return action
+
+    def learn(self, episode):
+        (state, action, reward, state_) = self.memory.popleft()
+        td_error = self.critic.learn(self.episode, state, reward, state_)
+        self.actor.learn(self.episode, state, action, td_error)
+
+        if episode % BaseBot.STORE_MODEL_FREQUENCY is 0:
+            ckpt = tf.train.get_checkpoint_state(Luffy.MODEL_PATH)
+            self.saver.save(self.sess, Luffy.MODEL_PATH + '/model_' + str(episode) + '.ckpt')
+            print("Saving Model with episode %r " % episode)
+
+        """
+        if episode % BaseBot.UPDATE_FREQUENCY == 0:
+            self.writer.add_summary(self.summary, episode)
+            self.writer.flush()
+            print("summary flushed")
+        """
+
+
+class Actor:
+
+    def __init__(self, sess, n_features, n_actions, lr=Luffy.LEARNING_RATE):
         self.sess = sess
+        self._build_net(n_features, n_actions, lr)
 
-        self.learning_rate = 0.001
-        self.epsilon = 1.0
-        self.epsilon_decay = .995
-        self.gamma = .95
-        self.tau   = .125
+    def declare_action(self, state):
+        prob_weights = self.sess.run(self.acts_prob, {self.s: state})
+        return prob_weights
 
-        # ===================================================================== #
-        #                               Actor Model                             #
-        # Chain rule: find the gradient of chaging the actor network params in  #
-        # getting closest to the final value network predictions, i.e. de/dA    #
-        # Calculate de/dA as = de/dC * dC/dA, where e is error, C critic, A act #
-        # ===================================================================== #
+    def learn(self, episode, state, action, td):
+        feed_dict = {self.s: state, self.a: action, self.td_error: td}
+        _, exp_v = self.sess.run([self.train_op, self.exp_v], feed_dict)
+        return exp_v
 
-        self.memory = deque(maxlen=2000)
-        self.actor_state_input, self.actor_model = self.create_actor_model()
-        _, self.target_actor_model = self.create_actor_model()
+    def _build_net(self, n_features, n_actions, lr):
+        self.s = tf.placeholder(tf.float32, [1, n_features], "state")
+        self.a = tf.placeholder(tf.int32, None, "act")
+        self.td_error = tf.placeholder(tf.float32, None, "td_error")  # TD_error
 
-        self.actor_critic_grad = tf.placeholder(tf.float32,
-                                                [None, self.env.action_space.shape[0]]) # where we will feed de/dC (from critic)
+        with tf.variable_scope('Actor'):
+            l1 = tf.layers.dense(
+                inputs=self.s,
+                units=20,    # number of hidden units
+                activation=tf.nn.relu,
+                kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
+                bias_initializer=tf.constant_initializer(0.1),  # biases
+                name='l1'
+            )
 
-        actor_model_weights = self.actor_model.trainable_weights
-        self.actor_grads = tf.gradients(self.actor_model.output,
-                                        actor_model_weights, -self.actor_critic_grad) # dC/dA (from actor)
-        grads = zip(self.actor_grads, actor_model_weights)
-        self.optimize = tf.train.AdamOptimizer(self.learning_rate).apply_gradients(grads)
+            self.acts_prob = tf.layers.dense(
+                inputs=l1,
+                units=n_actions,    # output units
+                activation=tf.nn.softmax,   # get action probabilities
+                kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
+                bias_initializer=tf.constant_initializer(0.1),  # biases
+                name='acts_prob'
+            )
 
-        # ===================================================================== #
-        #                              Critic Model                             #
-        # ===================================================================== #
+        with tf.variable_scope('exp_v'):
+            log_prob = tf.log(self.acts_prob[0, self.a])
+            self.exp_v = tf.reduce_mean(log_prob * self.td_error)  # advantage (TD_error) guided loss
 
-        self.critic_state_input, self.critic_action_input, \
-            self.critic_model = self.create_critic_model()
-        _, _, self.target_critic_model = self.create_critic_model()
+        with tf.variable_scope('train'):
+            self.train_op = tf.train.AdamOptimizer(lr).minimize(-self.exp_v)  # minimize(-exp_v) = maximize(exp_v)
 
-        self.critic_grads = tf.gradients(self.critic_model.output,
-                                         self.critic_action_input) # where we calcaulte de/dC for feeding above
 
-        # Initialize for later gradient calculations
-        self.sess.run(tf.initialize_all_variables())
+class Critic:
 
-    # ========================================================================= #
-    #                              Model Definitions                            #
-    # ========================================================================= #
+    def __init__(self, sess, n_features, lr=Luffy.LEARNING_RATE):
+        self.sess = sess
+        self._build_net(n_features, lr)
 
-    def create_actor_model(self):
-        state_input = Input(shape=self.env.observation_space.shape)
-        h1 = Dense(24, activation='relu')(state_input)
-        h2 = Dense(48, activation='relu')(h1)
-        h3 = Dense(24, activation='relu')(h2)
-        output = Dense(self.env.action_space.shape[0], activation='relu')(h3)
+    def learn(self, episode, state, reward, state_):
+        v_ = self.sess.run(self.v, {self.s:state_})
+        td_error, _ = self.sess.run([self.td_error, self.train_op],
+                                    {self.s: state, self.v_: v_, self.r: reward})
+        return td_error
 
-        model = Model(input=state_input, output=output)
-        adam  = Adam(lr=0.001)
-        model.compile(loss="mse", optimizer=adam)
-        return state_input, model
+    def _build_net(self, n_features, lr):
+        self.s = tf.placeholder(tf.float32, [1, n_features], "state")
+        self.v_ = tf.placeholder(tf.float32, [1, 1], "v_next")
+        self.r = tf.placeholder(tf.float32, None, 'r')
 
-    def create_critic_model(self):
-        state_input = Input(shape=self.env.observation_space.shape)
-        state_h1 = Dense(24, activation='relu')(state_input)
-        state_h2 = Dense(48)(state_h1)
+        with tf.variable_scope('Critic'):
+            l1 = tf.layers.dense(
+                inputs=self.s,
+                units=20,  # number of hidden units
+                activation=tf.nn.relu,  # None
+                # have to be linear to make sure the convergence of actor.
+                # But linear approximator seems hardly learns the correct Q.
+                kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
+                bias_initializer=tf.constant_initializer(0.1),  # biases
+                name='l1'
+            )
 
-        action_input = Input(shape=self.env.action_space.shape)
-        action_h1    = Dense(48)(action_input)
+            self.v = tf.layers.dense(
+                inputs=l1,
+                units=1,  # output units
+                activation=None,
+                kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
+                bias_initializer=tf.constant_initializer(0.1),  # biases
+                name='V'
+            )
 
-        merged    = Add()([state_h2, action_h1])
-        merged_h1 = Dense(24, activation='relu')(merged)
-        output = Dense(1, activation='relu')(merged_h1)
-        model  = Model(input=[state_input,action_input], output=output)
-
-        adam  = Adam(lr=0.001)
-        model.compile(loss="mse", optimizer=adam)
-        return state_input, action_input, model
-
-    # ========================================================================= #
-    #                               Model Training                              #
-    # ========================================================================= #
-
-    def remember(self, cur_state, action, reward, new_state, done):
-        self.memory.append([cur_state, action, reward, new_state, done])
-
-    def _train_actor(self, samples):
-        for sample in samples:
-            cur_state, action, reward, new_state, _ = sample
-            predicted_action = self.actor_model.predict(cur_state)
-            grads = self.sess.run(self.critic_grads, feed_dict={
-                self.critic_state_input:  cur_state,
-                self.critic_action_input: predicted_action
-            })[0]
-
-            self.sess.run(self.optimize, feed_dict={
-                self.actor_state_input: cur_state,
-                self.actor_critic_grad: grads
-            })
-
-    def _train_critic(self, samples):
-        for sample in samples:
-            cur_state, action, reward, new_state, done = sample
-            if not done:
-                target_action = self.target_actor_model.predict(new_state)
-                future_reward = self.target_critic_model.predict(
-                    [new_state, target_action])[0][0]
-                reward += self.gamma * future_reward
-            self.critic_model.fit([cur_state, action], reward, verbose=0)
-
-    def train(self):
-        batch_size = 32
-        if len(self.memory) < batch_size:
-            return
-
-        rewards = []
-        samples = random.sample(self.memory, batch_size)
-        self._train_critic(samples)
-        self._train_actor(samples)
-
-    # ========================================================================= #
-    #                         Target Model Updating                             #
-    # ========================================================================= #
-
-    def _update_actor_target(self):
-        actor_model_weights  = self.actor_model.get_weights()
-        actor_target_weights = self.target_critic_model.get_weights()
-
-        for i in range(len(actor_target_weights)):
-            actor_target_weights[i] = actor_model_weights[i]
-        self.target_critic_model.set_weights(actor_target_weights)
-
-    def _update_critic_target(self):
-        critic_model_weights  = self.critic_model.get_weights()
-        critic_target_weights = self.critic_target_model.get_weights()
-
-        for i in range(len(critic_target_weights)):
-            critic_target_weights[i] = critic_model_weights[i]
-        self.critic_target_model.set_weights(critic_target_weights)
-
-    def update_target(self):
-        self._update_actor_target()
-        self._update_critic_target()
-
-    # ========================================================================= #
-    #                              Model Predictions                            #
-    # ========================================================================= #
-
-    def act(self, cur_state):
-        self.epsilon *= self.epsilon_decay
-        if np.random.random() < self.epsilon:
-            return self.env.action_space.sample()
-        return self.actor_model.predict(cur_state)
-
-def main():
-    sess = tf.Session()
-    K.set_session(sess)
-    env = gym.make("Pendulum-v0")
-    actor_critic = ActorCritic(env, sess)
-
-    num_trials = 10000
-    trial_len  = 500
-
-    cur_state = env.reset()
-    action = env.action_space.sample()
-    while True:
-        env.render()
-        cur_state = cur_state.reshape((1, env.observation_space.shape[0]))
-        action = actor_critic.act(cur_state)
-        action = action.reshape((1, env.action_space.shape[0]))
-
-        new_state, reward, done, _ = env.step(action)
-        new_state = new_state.reshape((1, env.observation_space.shape[0]))
-
-        actor_critic.remember(cur_state, action, reward, new_state, done)
-        actor_critic.train()
-
-        cur_state = new_state
-
-if __name__ == "__main__":
-    main()
+        with tf.variable_scope('squared_TD_error'):
+            self.td_error = self.r + Luffy.GAMMA * self.v_ - self.v
+            self.loss = tf.square(self.td_error)    # TD_error = (r+gamma*V_next) - V_eval
+        with tf.variable_scope('train'):
+            self.train_op = tf.train.AdamOptimizer(lr).minimize(self.loss)
