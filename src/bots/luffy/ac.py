@@ -59,8 +59,7 @@ class Luffy(BaseBot):
             for i in range(2, 15):
                 if info.candidate.df.loc[i, s] == 0:
                     prob_weights[0][index_suit * 13 + i -2] = 0
-        print(prob_weights)
-        from pdb import set_trace; set_trace()
+        prob_weights = prob_weights / prob_weights.sum()
         action = np.random.choice(range(prob_weights.shape[1]), p=prob_weights.ravel())  # select action w.r.t the actions prob
         return action
 
@@ -105,7 +104,7 @@ class Actor:
         with tf.variable_scope('Actor'):
             l1 = tf.layers.dense(
                 inputs=self.s,
-                units=20,    # number of hidden units
+                units=200,    # number of hidden units
                 activation=tf.nn.relu,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
@@ -149,7 +148,7 @@ class Critic:
         with tf.variable_scope('Critic'):
             l1 = tf.layers.dense(
                 inputs=self.s,
-                units=20,  # number of hidden units
+                units=200,  # number of hidden units
                 activation=tf.nn.relu,  # None
                 # have to be linear to make sure the convergence of actor.
                 # But linear approximator seems hardly learns the correct Q.

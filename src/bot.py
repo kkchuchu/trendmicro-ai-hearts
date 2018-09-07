@@ -102,9 +102,11 @@ class RuleBot:
         self.info.table.n_round = data['roundNumber']
 
     def pick_card(self, data):
+        self.info.candidate = Cards()
         for c in data['self']['candidateCards']:
             self.info.candidate.add_card(c)
 
+        # print(self.info.candidate.df)
         self.get_hand(data)
         pick_card = self._its_my_turn(self.info)
         system_log.show_message('pick_card %r' % pick_card)
@@ -159,6 +161,7 @@ class MLBot(RuleBot):
         super(MLBot, self).__init__(name, a_bot)
         self.before_my_turn_game_info = None
         self.after_my_turn_game_info = None
+        self.my_turn_action = None
 
     def _its_my_turn(self, info):
         self.before_my_turn_game_info = info.to_array().reshape(1, self.bot.n_features)
@@ -167,21 +170,20 @@ class MLBot(RuleBot):
         return action
 
     def pass_cards(self, data):
-        actions = super(MLBot, self).pass_cards(data)
-        return self._52_to_trend_card(actions)
+        # actions = super(MLBot, self).pass_cards(data)
+        import random
+        cards = data['players'][self.info.me]['cards']
+        return random.sample(cards, 3)
+        # return self._52_to_trend_card(actions)
 
     def pick_card(self, data):
         action = super(MLBot, self).pick_card(data)
-        return self._52_to_trend_card(action)
+        card_color = self._52_to_trend_card(action)
+        # print('card: %r', card_color)
+        return card_color
 
     def expose_my_cards(self, data):
-        try:
-            card = super(MLBot, self).expose_my_cards(data)
-            action = self._52_to_trend_card(card)
-        except:
-            action = ['AH']
-
-        return action
+        return ['AH']
 
     def _52_to_trend_card(self, card: int):
         suit = INDEX_TO_SUIT[int(card/13)]
