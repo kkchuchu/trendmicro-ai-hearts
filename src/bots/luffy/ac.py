@@ -25,24 +25,26 @@ class Luffy(BaseBot):
     LEARNING_RATE=0.001
     GAMMA = 0.9
 
-    def __init__(self, is_restore=True, output_graph=True, output_summary=True):
+    def __init__(self, sess, scope, is_restore=True, output_graph=True, output_summary=True):
         self.is_restore = is_restore
         self.output_graph = output_graph
         self.output_summary = output_summary
         self.episode = 0
         self.memory = deque()
-        self.sess = tf.Session()
+        self.saver = tf.train.Saver()
         self.n_features = BaseBot.N_FEATURES
         self.n_actions = BaseBot.N_ACTIONS
-        self.actor = Actor(self.sess, self.n_features, self.n_actions)
-        self.critic = Critic(self.sess, self.n_features)
-        self.saver = tf.train.Saver()
-        self.sess.run(tf.global_variables_initializer())
+        self.sess = sess
+        with tf.variable_scope(scope):
+            self.actor = Actor(self.sess, scope, self.n_features, self.n_actions)
+            self.critic = Critic(self.sess, scope, self.n_features)
 
         if is_restore:
             print("restore from %r" % Luffy.MODEL_PATH)
             ckpt = tf.train.get_checkpoint_state(Luffy.MODEL_PATH)
             self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+        else:
+            self.sess.run(tf.global_variables_initializer())
 
     def store_transition(self, s: tuple):
         """
@@ -83,7 +85,7 @@ class Luffy(BaseBot):
 
 class Actor:
 
-    def __init__(self, sess, n_features, n_actions, lr=Luffy.LEARNING_RATE):
+    def __init__(self, sess, scope, n_features, n_actions, lr=Luffy.LEARNING_RATE):
         self.sess = sess
         self._build_net(n_features, n_actions, lr)
 
@@ -96,12 +98,12 @@ class Actor:
         _, exp_v = self.sess.run([self.train_op, self.exp_v], feed_dict)
         return exp_v
 
-    def _build_net(self, n_features, n_actions, lr):
+    def _build_net(self, scope, n_features, n_actions, lr):
         self.s = tf.placeholder(tf.float32, [1, n_features], "state")
         self.a = tf.placeholder(tf.int32, None, "act")
         self.td_error = tf.placeholder(tf.float32, None, "td_error")  # TD_error
 
-        with tf.variable_scope('Actor'):
+        with tf.variable_scope(scope + '/actor'):
             l1 = tf.layers.dense(
                 inputs=self.s,
                 units=200,    # number of hidden units
@@ -130,9 +132,9 @@ class Actor:
 
 class Critic:
 
-    def __init__(self, sess, n_features, lr=Luffy.LEARNING_RATE):
+    def __init__(self, sess, scope, n_features, lr=Luffy.LEARNING_RATE):
         self.sess = sess
-        self._build_net(n_features, lr)
+        self._build_net(scope, n_features, lr)
 
     def learn(self, episode, state, reward, state_):
         v_ = self.sess.run(self.v, {self.s:state_})
@@ -140,12 +142,12 @@ class Critic:
                                     {self.s: state, self.v_: v_, self.r: reward})
         return td_error
 
-    def _build_net(self, n_features, lr):
+    def _build_net(self, scope, n_features, lr):
         self.s = tf.placeholder(tf.float32, [1, n_features], "state")
         self.v_ = tf.placeholder(tf.float32, [1, 1], "v_next")
         self.r = tf.placeholder(tf.float32, None, 'r')
 
-        with tf.variable_scope('Critic'):
+        with tf.variable_scope(scope + '/critic'):
             l1 = tf.layers.dense(
                 inputs=self.s,
                 units=200,  # number of hidden units
