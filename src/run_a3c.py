@@ -10,7 +10,7 @@ from system_log import system_log
 
 from sample_bot import PokerSocket
 import multiprocessing
-from multiprocessing import Process, Value, Array
+from multiprocessing import Process, Queue
 import threading
 
 import tensorflow as tf
@@ -18,7 +18,7 @@ import tensorflow as tf
 CONNECT_URL="ws://localhost:8080/"
 IS_RESTORE=False
 
-def worker(player_name, player_number, token):
+def worker(player_name, player_number, token, queue):
     with tf.Session() as sess:
         a_bot = MLBot(player_name, Luffy(sess, player_name, is_restore=False))
         my_poker_socket = PokerSocket(player_name, player_number, token, CONNECT_URL, a_bot)
@@ -30,19 +30,20 @@ def worker(player_name, player_number, token):
 def main():
     num_workers = multiprocessing.cpu_count() # Set workers ot number of available CPU threads
     print("Total CPUs are %r" % num_workers)
+    queue = Queue()
 
-    with tf.Session() as sess:
-        master_network = GlobalAC(sess, BaseBot.N_FEATURES, BaseBot.N_ACTIONS) # Generate global network
+    # with tf.Session() as sess:
+    #     master_network = GlobalAC(sess, BaseBot.N_FEATURES, BaseBot.N_ACTIONS, queue) # Generate global network
 
     worker_processes = []
     for i in range(1, 5):
         player_name = "bot_number_%r" % i
         player_number = i
         token="12345678"
-        # worker(player_name, player_number, token)
-        t = Process(target=worker, args=(player_name, player_number, token))
-        t.start()
-        worker_processes.append(t)
+        worker(player_name, player_number, token, queue)
+        # t = Process(target=worker, args=(player_name, player_number, token, queue))
+        # t.start()
+        # worker_processes.append(t)
         print("start player_name: %r with player_number: %r" % (player_name, player_number))
 
     for w in worker_processes:

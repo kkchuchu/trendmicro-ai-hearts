@@ -25,7 +25,7 @@ class Luffy(BaseBot):
     LEARNING_RATE=0.001
     GAMMA = 0.9
 
-    def __init__(self, sess, scope, is_restore=True, output_graph=True, output_summary=True):
+    def __init__(self, sess, scope, queue, is_restore=True, output_graph=True, output_summary=True):
         self.is_restore = is_restore
         self.output_graph = output_graph
         self.output_summary = output_summary
@@ -34,6 +34,7 @@ class Luffy(BaseBot):
         self.n_features = BaseBot.N_FEATURES
         self.n_actions = BaseBot.N_ACTIONS
         self.sess = sess
+        self.queue = queue
         self.saver = None
         with tf.variable_scope(scope):
             self.actor = Actor(self.sess, scope, self.n_features, self.n_actions)
@@ -71,6 +72,9 @@ class Luffy(BaseBot):
         td_error = self.critic.learn(self.episode, state, reward, state_)
         self.actor.learn(self.episode, state, action, td_error)
 
+        # put grad in here
+        self.queue.put([self.actor.grad_and_var, self.critic.grad_and_var])
+
         if episode % BaseBot.STORE_MODEL_FREQUENCY is 0:
             if self.saver is None:
                 self.saver = tf.train.Saver()
@@ -87,8 +91,9 @@ class Luffy(BaseBot):
 
 class GlobalAC:
 
-    def __init__(self, sess, n_features, n_actions, learning_rate=Luffy.LEARNING_RATE, scope='Global_Net'):
+    def __init__(self, sess, n_features, n_actions, queue, learning_rate=Luffy.LEARNING_RATE, scope='Global_Net'):
         self.sess = sess
+        self.queue = queue
         with tf.variable_scope(scope):
             self.s = tf.placeholder(tf.float32, [None, n_features], 'state')
             self.actor_parameter  = Actor(self.sess, scope, n_features, n_actions, lr=learning_rate).parameter
